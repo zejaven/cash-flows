@@ -37,6 +37,8 @@ export interface Transaction {
   id: number;
   type: TransactionType;
   date: string;
+  time: string | null;
+  reference: string | null;
   accountId: number;
   accountName: string;
   accountCurrency: string;
@@ -121,4 +123,108 @@ export interface TransactionFilters {
   type?: TransactionType;
   q?: string;
   needsReview?: boolean;
+}
+
+// --- stage 2: import, rules, reconciliation ---
+
+export interface CategoryRule {
+  id: number;
+  pattern: string;
+  categoryId: number;
+  categoryName: string;
+  categoryType: CategoryType;
+  categoryColor: string;
+  archived: boolean;
+}
+
+export type MappingAction = 'MAP' | 'CREATE' | 'SKIP';
+export type SuggestionKind = 'AUTO' | 'SKIP' | 'UNMAPPED';
+
+export interface PreviewAccount {
+  accountNumber: string;
+  currency: string;
+  txnCount: number;
+  balanceStart: number | null;
+  balanceEnd: number | null;
+  suggestion: { kind: SuggestionKind; accountId: number | null; accountName: string | null };
+}
+
+export interface CashCurrency {
+  currency: string;
+  withdrawalCount: number;
+  suggestedAccountId: number | null;
+  suggestedAccountName: string | null;
+}
+
+export interface ImportPreview {
+  token: string;
+  fileName: string;
+  periodFrom: string;
+  periodTo: string;
+  totalRows: number;
+  accounts: PreviewAccount[];
+  cashCurrencies: CashCurrency[];
+}
+
+export interface AccountDecision {
+  accountNumber: string;
+  action: MappingAction;
+  accountId?: number | null;
+  newAccount?: { name: string; startBalance?: number | null; startDate?: string | null } | null;
+}
+
+export interface CashDecision {
+  currency: string;
+  accountId?: number | null;
+  createNew: boolean;
+}
+
+export interface ImportReport {
+  importRunId: number;
+  created: number;
+  duplicates: number;
+  needsReview: number;
+  transfers: number;
+  warnings: string[];
+  accounts: {
+    accountId: number;
+    name: string;
+    currency: string;
+    balanceBefore: number;
+    balanceAfter: number;
+  }[];
+}
+
+export interface ImportRun {
+  id: number;
+  bankName: string;
+  fileName: string;
+  periodFrom: string;
+  periodTo: string;
+  created: number;
+  duplicates: number;
+  needsReview: number;
+  transfers: number;
+  createdAt: string;
+}
+
+export interface ReconciliationRow {
+  accountId: number;
+  name: string;
+  currency: string;
+  computedBalance: number;
+}
+
+export interface Correction {
+  transactionId: number;
+  accountId: number;
+  accountName: string;
+  currency: string;
+  type: TransactionType;
+  amount: number;
+}
+
+export interface ReconciliationHistoryEntry {
+  date: string;
+  corrections: Correction[];
 }

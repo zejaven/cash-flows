@@ -7,6 +7,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.zeveon.cashflows.statement.StatementVerificationException;
 
 import java.util.stream.Collectors;
 
@@ -35,6 +36,12 @@ public class RestExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ProblemDetail handleIllegalArgument(IllegalArgumentException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
+    @ExceptionHandler(StatementVerificationException.class)
+    public ProblemDetail handleStatementVerification(StatementVerificationException e) {
+        // FR-4.3: checksum mismatch rejects the whole import
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

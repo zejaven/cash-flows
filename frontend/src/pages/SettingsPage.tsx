@@ -19,6 +19,7 @@ import { DISPLAY_CURRENCIES, useSettings, type DisplayCurrency } from '../contex
 import { useToast } from '../context/ToastContext';
 import { Modal } from '../components/Modal';
 import { Spinner } from '../components/Spinner';
+import { CategoryRulesCard } from '../components/CategoryRules';
 import { formatMoney, KNOWN_CURRENCIES } from '../utils/money';
 import { formatDate, today } from '../utils/dates';
 import type { Account, AccountType, Bank, Category, CategoryType } from '../types';
@@ -232,6 +233,8 @@ export function SettingsPage() {
           ))
         )}
       </div>
+
+      <CategoryRulesCard />
 
       {bankModal && (
         <BankForm

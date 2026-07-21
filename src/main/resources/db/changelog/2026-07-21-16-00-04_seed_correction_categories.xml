@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-16-00-04_seed_correction_categories" author="zejaven">
+        <!-- Two rows because of UNIQUE(name, type) and the category-type check on
+             transactions: a correction can go either way (FR-12.2). The UI shows
+             them as a single "Correction · SYSTEM" entry. -->
+        <sql>
+            INSERT INTO cashflow.category (name, type, color, system) VALUES
+                ('Correction', 'EXPENSE', '#8a96ab', true),
+                ('Correction', 'INCOME',  '#8a96ab', true)
+        </sql>
+        <rollback>
+            <sql>DELETE FROM cashflow.category WHERE name = 'Correction' AND system = true</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

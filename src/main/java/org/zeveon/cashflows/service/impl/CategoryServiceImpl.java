@@ -51,8 +51,18 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryDto update(Long id, CategoryRequest request) {
         var category = categoryRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Category", id));
-        if (category.isSystem() && category.getType() != request.type()) {
-            throw new ConflictException("System category type cannot be changed");
+        if (category.isSystem()) {
+            // System categories (Correction) are load-bearing: reconciliation looks
+            // them up by name+type, and stats exclude them — only the color is editable.
+            if (category.getType() != request.type()) {
+                throw new ConflictException("System category type cannot be changed");
+            }
+            if (!category.getName().equals(request.name())) {
+                throw new ConflictException("System category cannot be renamed");
+            }
+            if (Boolean.TRUE.equals(request.archived())) {
+                throw new ConflictException("System category cannot be archived");
+            }
         }
         category.setName(request.name());
         category.setType(request.type());

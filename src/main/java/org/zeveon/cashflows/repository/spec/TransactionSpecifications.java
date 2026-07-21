@@ -17,6 +17,16 @@ public final class TransactionSpecifications {
     }
 
     public static Specification<Transaction> matching(TransactionFilter filter) {
+        return matching(filter, false);
+    }
+
+    /**
+     * {@code excludeSystemCategories} — used by aggregates (FR-12.3): Correction
+     * transactions affect balances but must not distort expense statistics.
+     * Uncategorized transactions (needs review) are NOT system and stay included.
+     */
+    public static Specification<Transaction> matching(TransactionFilter filter,
+                                                      boolean excludeSystemCategories) {
         return (root, query, cb) -> {
             var predicates = new ArrayList<jakarta.persistence.criteria.Predicate>();
             if (filter.from() != null) {
@@ -45,6 +55,12 @@ public final class TransactionSpecifications {
                 predicates.add(cb.and(
                         cb.isNull(root.get("category")),
                         cb.notEqual(root.get("type"), TransactionType.TRANSFER)));
+            }
+            if (excludeSystemCategories) {
+                var category = root.join("category", JoinType.LEFT);
+                predicates.add(cb.or(
+                        cb.isNull(category.get("id")),
+                        cb.isFalse(category.get("system"))));
             }
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
         };

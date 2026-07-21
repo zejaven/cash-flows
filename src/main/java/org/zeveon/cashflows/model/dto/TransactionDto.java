@@ -5,6 +5,7 @@ import org.zeveon.cashflows.entity.enums.TransactionType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 /**
  * @author Stanislav Vafin
@@ -13,6 +14,7 @@ public record TransactionDto(
         Long id,
         TransactionType type,
         LocalDate date,
+        LocalTime time,
         Long accountId,
         String accountName,
         String accountCurrency,
@@ -27,5 +29,6 @@ public record TransactionDto(
         String counterAccountName,
         String counterAccountCurrency,
         BigDecimal counterAmount,
-        TransactionSource source) {
+        TransactionSource source,
+        String reference) {
 }

@@ -4,6 +4,10 @@ server:
 spring:
   config:
     import: optional:file:./config/secrets.yml
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
   datasource:
     driver-class-name: org.postgresql.Driver
   jpa:
@@ -19,3 +23,9 @@ spring:
 
 fx:
   base-url: https://open.er-api.com
+
+import:
+  parser:
+    python-command: python
+    script-path: parse_statement.py
+    timeout: 120s

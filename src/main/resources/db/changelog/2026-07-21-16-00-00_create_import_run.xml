@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-16-00-00_create_import_run" author="zejaven">
+        <createTable tableName="import_run" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_import_run" nullable="false"/>
+            </column>
+            <column name="bank_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_import_run_bank"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="bank" referencedColumnNames="id"/>
+            </column>
+            <column name="file_name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="period_from" type="date"/>
+            <column name="period_to" type="date"/>
+            <column name="created_count" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="duplicate_count" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="needs_review_count" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transfer_count" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <rollback>
+            <dropTable tableName="import_run" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

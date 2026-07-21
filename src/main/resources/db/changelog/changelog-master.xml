@@ -10,4 +10,9 @@
     <include file="db/changelog/2026-07-21-14-00-04_create_transaction.xml"/>
     <include file="db/changelog/2026-07-21-14-00-05_create_fx_rate_snapshot.xml"/>
     <include file="db/changelog/2026-07-21-14-00-06_seed_categories.xml"/>
+    <include file="db/changelog/2026-07-21-16-00-00_create_import_run.xml"/>
+    <include file="db/changelog/2026-07-21-16-00-01_alter_transaction_import_columns.xml"/>
+    <include file="db/changelog/2026-07-21-16-00-02_create_category_rule.xml"/>
+    <include file="db/changelog/2026-07-21-16-00-03_create_statement_account_skip.xml"/>
+    <include file="db/changelog/2026-07-21-16-00-04_seed_correction_categories.xml"/>
 </databaseChangeLog>

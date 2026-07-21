@@ -14,6 +14,7 @@ import org.zeveon.cashflows.entity.enums.TransactionType;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 
 /**
  * A money movement on an account. Amounts are always positive; the sign is implied
@@ -79,6 +80,30 @@ public class Transaction {
     @Enumerated(EnumType.STRING)
     @Column(name = "source", nullable = false)
     private TransactionSource source;
+
+    @Column(name = "txn_time")
+    private LocalTime txnTime;
+
+    @Column(name = "reference")
+    private String reference;
+
+    @Column(name = "auth_code")
+    private String authCode;
+
+    /**
+     * Immutable dedup key of the source statement row (FR-4.5): survives user
+     * edits so re-imports of overlapping periods stay idempotent. For a TRANSFER,
+     * {@link #counterImportKey} holds the receiving-side row's key.
+     */
+    @Column(name = "import_key")
+    private String importKey;
+
+    @Column(name = "counter_import_key")
+    private String counterImportKey;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "import_run_id")
+    private ImportRun importRun;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

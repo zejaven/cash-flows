@@ -42,10 +42,13 @@ export function TransactionModal({
   existing,
   onClose,
   onSaved,
+  onCategorized,
 }: {
   existing?: Transaction;
   onClose: () => void;
   onSaved: () => void;
+  /** Fired when a save assigned a category — hook for the rule-suggestion dialog. */
+  onCategorized?: (categoryId: number) => void;
 }) {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -107,6 +110,7 @@ export function TransactionModal({
       storeLast(LAST_ACCOUNT_KEY, accountId);
       if (categoryId) storeLast(LAST_CATEGORY_KEY, categoryId);
       onSaved();
+      if (categoryId && onCategorized) onCategorized(categoryId);
       onClose();
     } catch (err) {
       toast(apiErrorMessage(err), true);

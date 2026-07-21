@@ -5,11 +5,15 @@ import { useTheme } from './context/ThemeContext';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TransactionsPage } from './pages/TransactionsPage';
+import { ImportPage } from './pages/ImportPage';
+import { ReconcilePage } from './pages/ReconcilePage';
 import { SettingsPage } from './pages/SettingsPage';
 
 const TITLES: Record<string, string> = {
   '': 'Dashboard',
   transactions: 'Transactions',
+  import: 'Import',
+  reconcile: 'Reconcile',
   settings: 'Settings',
 };
 
@@ -52,6 +56,12 @@ export default function App() {
       >
         Transactions
       </NavLink>
+      <NavLink to="/import" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        Import
+      </NavLink>
+      <NavLink to="/reconcile" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        Reconcile
+      </NavLink>
       <NavLink to="/settings" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Settings
       </NavLink>
@@ -75,6 +85,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
+            <Route path="/import" element={<ImportPage />} />
+            <Route path="/reconcile" element={<ReconcilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
@@ -86,6 +98,12 @@ export default function App() {
         </NavLink>
         <NavLink to="/transactions" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">≣</span>Txns
+        </NavLink>
+        <NavLink to="/import" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <span className="tab-icon">⇪</span>Import
+        </NavLink>
+        <NavLink to="/reconcile" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <span className="tab-icon">⚖</span>Reconcile
         </NavLink>
         <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">⚙</span>Settings

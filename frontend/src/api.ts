@@ -1,10 +1,19 @@
 import type {
   Account,
+  AccountDecision,
   Bank,
+  CashDecision,
   Category,
+  CategoryRule,
+  Correction,
   DayTotalsResponse,
   FxRates,
+  ImportPreview,
+  ImportReport,
+  ImportRun,
   Page,
+  ReconciliationHistoryEntry,
+  ReconciliationRow,
   Summary,
   Transaction,
   TransactionFilters,
@@ -143,3 +152,60 @@ export const getDayTotals = (filters: TransactionFilters, currency: string) =>
   request<DayTotalsResponse>('GET', `/api/transactions/day-totals${query({ ...filters, currency })}`);
 export const getSummary = (filters: TransactionFilters, date: string, currency: string) =>
   request<Summary>('GET', `/api/transactions/summary${query({ ...filters, date, currency })}`);
+
+// --- statement import (stage 2)
+export async function previewImport(bankId: number, file: File): Promise<ImportPreview> {
+  const form = new FormData();
+  form.set('bankId', String(bankId));
+  form.set('file', file);
+  // no Content-Type header: the browser sets the multipart boundary itself
+  const response = await fetch('/api/imports/preview', {
+    method: 'POST',
+    headers: { 'X-XSRF-TOKEN': csrfToken() },
+    body: form,
+  });
+  if (response.status === 401 && unauthorizedHandler) unauthorizedHandler();
+  if (!response.ok) {
+    let errorBody: unknown = null;
+    try {
+      errorBody = await response.json();
+    } catch {
+      /* not json */
+    }
+    throw new ApiError(response.status, errorBody);
+  }
+  return response.json();
+}
+
+export const confirmImport = (token: string, accounts: AccountDecision[], cash: CashDecision[]) =>
+  request<ImportReport>('POST', '/api/imports/confirm', { token, accounts, cash });
+export const getImportRuns = () => request<ImportRun[]>('GET', '/api/imports');
+
+// --- category rules
+export const getCategoryRules = () => request<CategoryRule[]>('GET', '/api/category-rules');
+export const createCategoryRule = (body: {
+  pattern: string;
+  categoryId: number;
+  applyToExisting: boolean;
+}) => request<{ rule: CategoryRule; appliedCount: number }>('POST', '/api/category-rules', body);
+export const updateCategoryRule = (
+  id: number,
+  body: { pattern: string; categoryId: number; archived?: boolean; applyToExisting: boolean },
+) => request<{ rule: CategoryRule; appliedCount: number }>('PUT', `/api/category-rules/${id}`, body);
+export const deleteCategoryRule = (id: number) =>
+  request<void>('DELETE', `/api/category-rules/${id}`);
+export const previewCategoryRule = (pattern: string, categoryId: number) =>
+  request<{ matchCount: number }>(
+    'GET',
+    `/api/category-rules/preview${query({ pattern, categoryId })}`,
+  );
+
+// --- reconciliation
+export const getReconciliation = (date: string) =>
+  request<ReconciliationRow[]>('GET', `/api/reconciliation${query({ date })}`);
+export const postReconciliation = (
+  date: string,
+  entries: { accountId: number; actualBalance: number }[],
+) => request<Correction[]>('POST', '/api/reconciliation', { date, entries });
+export const getReconciliationHistory = () =>
+  request<ReconciliationHistoryEntry[]>('GET', '/api/reconciliation/history');

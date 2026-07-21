@@ -105,7 +105,9 @@ public class AggregationServiceImpl implements AggregationService {
     }
 
     private List<Transaction> fetch(TransactionFilter filter) {
-        return transactionRepository.findAll(TransactionSpecifications.matching(filter)).stream()
+        // system categories (Correction) excluded: FR-12.3
+        return transactionRepository
+                .findAll(TransactionSpecifications.matching(filter, true)).stream()
                 .filter(transaction -> transaction.getType() != TransactionType.TRANSFER)
                 .toList();
     }

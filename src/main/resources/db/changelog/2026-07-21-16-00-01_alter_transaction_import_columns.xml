@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-16-00-01_alter_transaction_import_columns" author="zejaven">
+        <addColumn tableName="transaction" schemaName="cashflow">
+            <column name="txn_time" type="time"/>
+            <column name="reference" type="varchar(64)"/>
+            <column name="auth_code" type="varchar(32)"/>
+            <column name="import_key" type="varchar(160)"/>
+            <column name="counter_import_key" type="varchar(160)"/>
+            <column name="import_run_id" type="bigint"/>
+        </addColumn>
+        <!-- FK added separately: constraints inside addColumn ignore referencedTableSchemaName -->
+        <addForeignKeyConstraint constraintName="fk_transaction_import_run"
+                                 baseTableSchemaName="cashflow" baseTableName="transaction"
+                                 baseColumnNames="import_run_id"
+                                 referencedTableSchemaName="cashflow" referencedTableName="import_run"
+                                 referencedColumnNames="id"/>
+        <!-- Partial unique indexes: the safety net under the service-level dedup check.
+             Liquibase's createIndex has no WHERE support, hence raw SQL. -->
+        <sql>CREATE UNIQUE INDEX uq_transaction_import_key
+            ON cashflow.transaction (account_id, import_key) WHERE import_key IS NOT NULL</sql>
+        <sql>CREATE UNIQUE INDEX uq_transaction_counter_import_key
+            ON cashflow.transaction (counter_account_id, counter_import_key)
+            WHERE counter_import_key IS NOT NULL</sql>
+        <createIndex tableName="transaction" schemaName="cashflow" indexName="idx_transaction_import_run_id">
+            <column name="import_run_id"/>
+        </createIndex>
+        <rollback>
+            <sql>DROP INDEX IF EXISTS cashflow.uq_transaction_import_key</sql>
+            <sql>DROP INDEX IF EXISTS cashflow.uq_transaction_counter_import_key</sql>
+            <dropColumn tableName="transaction" schemaName="cashflow">
+                <column name="txn_time"/>
+                <column name="reference"/>
+                <column name="auth_code"/>
+                <column name="import_key"/>
+                <column name="counter_import_key"/>
+                <column name="import_run_id"/>
+            </dropColumn>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

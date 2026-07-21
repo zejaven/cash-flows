@@ -1,3 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/cash_flows
+
+import:
+  parser:
+    python-command: python3
+    script-path: /app/parse_statement.py

@@ -256,13 +256,17 @@ def verify(document: dict) -> list[str]:
 
 
 def redact(document: dict) -> dict:
-    """Убрать личные идентификаторы (ИИН, номера счетов)."""
+    """Убрать личные идентификаторы (ИИН, номера счетов).
+
+    Последние 4 цифры счёта сохраняются и в поле account, и в описаниях —
+    иначе переводы между своими счетами перестают сопоставляться."""
     document["holder"]["name"] = None
     document["holder"]["iin"] = None
     for account in document["accounts"]:
         account["account"] = f"****{account['account'][-4:]}"
         for row in account["transactions"]:
-            row["description"] = ACCOUNT_NUMBER.sub("****", row["description"])
+            row["description"] = ACCOUNT_NUMBER.sub(
+                lambda m: f"****{m.group(0)[-4:]}", row["description"])
     return document
 
 

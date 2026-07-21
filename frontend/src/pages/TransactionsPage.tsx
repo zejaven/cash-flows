@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   apiErrorMessage,
   bulkCategory,
@@ -14,6 +15,7 @@ import { Spinner } from '../components/Spinner';
 import { Approx } from '../components/Money';
 import { TransactionModal } from '../components/TransactionForm';
 import { TransferModal } from '../components/TransferForm';
+import { RuleModal } from '../components/CategoryRules';
 import { formatDayHeader, today } from '../utils/dates';
 import { formatMoney, formatSigned } from '../utils/money';
 import type {
@@ -36,11 +38,19 @@ export function TransactionsPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [filters, setFilters] = useState<TransactionFilters>({});
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState<TransactionFilters>(() =>
+    searchParams.get('needsReview') === 'true' ? { needsReview: true } : {},
+  );
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkCategoryId, setBulkCategoryId] = useState<number | ''>('');
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [adding, setAdding] = useState(false);
+  /** «Create rule?» suggestion after manually categorizing an imported txn (FR-4.7) */
+  const [ruleSuggestion, setRuleSuggestion] = useState<{
+    pattern: string;
+    categoryId?: number;
+  } | null>(null);
   const { displayCurrency } = useSettings();
   const { toast } = useToast();
 
@@ -118,6 +128,18 @@ export function TransactionsPage() {
     try {
       await bulkCategory([...selected], Number(bulkCategoryId));
       toast(`Category set for ${selected.size} transactions`);
+      // one shared merchant just hand-categorized -> offer a rule (FR-4.7)
+      const picked = (items ?? []).filter((t) => selected.has(t.id));
+      const descriptions = new Set(picked.map((t) => t.description ?? ''));
+      const wasUncategorizedImport = picked.every(
+        (t) => t.source === 'IMPORT' && t.categoryId == null,
+      );
+      if (wasUncategorizedImport && descriptions.size === 1 && picked[0]?.description) {
+        setRuleSuggestion({
+          pattern: picked[0].description,
+          categoryId: Number(bulkCategoryId),
+        });
+      }
       reload();
     } catch (e) {
       toast(apiErrorMessage(e), true);
@@ -257,10 +279,28 @@ export function TransactionsPage() {
 
       {adding && <TransactionModal onClose={() => setAdding(false)} onSaved={reload} />}
       {editing && editing.type !== 'TRANSFER' && (
-        <TransactionModal existing={editing} onClose={() => setEditing(null)} onSaved={reload} />
+        <TransactionModal
+          existing={editing}
+          onClose={() => setEditing(null)}
+          onSaved={reload}
+          onCategorized={(categoryId) => {
+            if (editing.source === 'IMPORT' && editing.categoryId == null && editing.description) {
+              setRuleSuggestion({ pattern: editing.description, categoryId });
+            }
+          }}
+        />
       )}
       {editing && editing.type === 'TRANSFER' && (
         <TransferModal existing={editing} onClose={() => setEditing(null)} onSaved={reload} />
+      )}
+      {ruleSuggestion && (
+        <RuleModal
+          existing={null}
+          prefillPattern={ruleSuggestion.pattern}
+          prefillCategoryId={ruleSuggestion.categoryId}
+          onClose={() => setRuleSuggestion(null)}
+          onSaved={reload}
+        />
       )}
     </>
   );

@@ -16,6 +16,7 @@ public interface TransactionMapper {
     TransactionMapper INSTANCE = Mappers.getMapper(TransactionMapper.class);
 
     @Mapping(target = "date", source = "txnDate")
+    @Mapping(target = "time", source = "txnTime")
     @Mapping(target = "accountId", source = "account.id")
     @Mapping(target = "accountName", source = "account.name")
     @Mapping(target = "accountCurrency", source = "account.currency")
