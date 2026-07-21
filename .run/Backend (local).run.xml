@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Backend (local)" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="cash-flows" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="org.zeveon.cashflows.CashFlowsApplication" />
+    <option name="ACTIVE_PROFILES" value="local" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

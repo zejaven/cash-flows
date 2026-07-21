@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Full stack (local)" type="CompoundRunConfigurationType">
+    <toRun name="Backend (local)" type="SpringBootApplicationConfigurationType" />
+    <toRun name="Frontend (vite dev)" type="js.build_tools.npm" />
+    <method v="2" />
+  </configuration>
+</component>
