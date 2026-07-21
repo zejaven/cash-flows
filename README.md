@@ -46,10 +46,19 @@ docker exec cash-flows-postgres-1 psql -U cashflows -d cash_flows \
   -c "CREATE DATABASE cash_flows_test OWNER cashflows"
 ```
 
-## Statement parser
+## Statement parsers
 
-`parse_statement.py` converts an Alatau City Bank PDF statement to JSON
-(`pip install -r requirements.txt`, see
-[docs/bank-statement-structure.md](docs/bank-statement-structure.md)).
-Integration into the app import flow is stage 2 of the roadmap
-(requirements §5).
+Bank statement parsers live in `parsers/`, one script per bank, all emitting
+the same JSON contract (see
+[bank-statement-structure.md](docs/Alatau%20City%20Bank/bank-statement-structure.md))
+and verifying the statement's own checksums (exit 1 on mismatch):
+
+| Parser id (bound to a bank in Settings) | Script | Format |
+|---|---|---|
+| `alatau-pdf` | `parsers/alatau.py` | Alatau City Bank card statement (multi-currency) |
+| `bnz-pdf` | `parsers/bnz.py` | BNZ YouMoney statement (NZD) |
+
+Run standalone: `python parsers/bnz.py <statement.pdf> [-o out.json]`
+(`pip install -r requirements.txt`). The app invokes them as subprocesses;
+new banks are added by dropping a script here and registering its id in
+`StatementParserServiceImpl.REGISTRY`.

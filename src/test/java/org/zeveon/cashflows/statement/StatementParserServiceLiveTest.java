@@ -23,12 +23,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class StatementParserServiceLiveTest {
 
     private final StatementParserService service = new StatementParserServiceImpl(
-            new ImportParserProperties("python", "parse_statement.py", Duration.ofMinutes(2)));
+            new ImportParserProperties("python", "parsers", Duration.ofMinutes(2)));
 
     @Test
-    @DisplayName("parses the real statement PDF via subprocess")
+    @DisplayName("parses the real Alatau statement PDF via subprocess")
     void parseRealPdf() {
-        var pdf = Path.of("docs", "Bank statement-2026-07-20 185719.pdf");
+        var pdf = Path.of("docs", "Alatau City Bank", "Bank statement-2026-07-20 185719.pdf");
         assertThat(Files.exists(pdf)).isTrue();
 
         var dto = service.parse(StatementParserServiceImpl.ALATAU_PARSER_ID, pdf);
@@ -36,6 +36,25 @@ class StatementParserServiceLiveTest {
         assertThat(dto.accounts()).hasSize(4);
         assertThat(dto.accounts().stream().mapToInt(a -> a.transactions().size()).sum())
                 .isEqualTo(440);
+    }
+
+    @Test
+    @DisplayName("parses a real BNZ YouMoney statement via subprocess")
+    void parseBnzPdf() {
+        var pdf = Path.of("docs", "BNZ", "YouMoney_2026-03-12_1.pdf");
+        assertThat(Files.exists(pdf)).isTrue();
+
+        var dto = service.parse(StatementParserServiceImpl.BNZ_PARSER_ID, pdf);
+
+        assertThat(dto.bank().name()).isEqualTo("BNZ");
+        assertThat(dto.accounts()).hasSize(1);
+        var account = dto.accounts().getFirst();
+        assertThat(account.currency()).isEqualTo("NZD");
+        assertThat(account.transactions()).hasSize(7);
+        assertThat(account.summary().balanceEnd()).isEqualByComparingTo("40.20");
+        // synthesized references keep same-day equal amounts dedup-distinct
+        assertThat(account.transactions().stream().map(row -> row.reference()).distinct())
+                .hasSize(7);
     }
 
     @Test

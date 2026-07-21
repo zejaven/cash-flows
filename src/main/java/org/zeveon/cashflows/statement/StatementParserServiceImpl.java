@@ -29,6 +29,12 @@ import java.util.concurrent.TimeUnit;
 public class StatementParserServiceImpl implements StatementParserService {
 
     public static final String ALATAU_PARSER_ID = "alatau-pdf";
+    public static final String BNZ_PARSER_ID = "bnz-pdf";
+
+    /** parserId -> script file inside {@code import.parser.scripts-dir} (FR-4.2). */
+    private static final Map<String, String> REGISTRY = Map.of(
+            ALATAU_PARSER_ID, "alatau.py",
+            BNZ_PARSER_ID, "bnz.py");
 
     private final ImportParserProperties properties;
     private final ObjectMapper objectMapper;
@@ -40,17 +46,13 @@ public class StatementParserServiceImpl implements StatementParserService {
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
-    /** parserId -> script path. Extend here when new bank parsers appear (FR-4.2). */
-    private Map<String, String> registry() {
-        return Map.of(ALATAU_PARSER_ID, properties.scriptPath());
-    }
-
     @Override
     public StatementDto parse(String parserId, Path pdf) {
-        var script = registry().get(parserId);
-        if (script == null) {
+        var scriptName = REGISTRY.get(parserId);
+        if (scriptName == null) {
             throw new ConflictException("Unknown statement parser: " + parserId);
         }
+        var script = Path.of(properties.scriptsDir(), scriptName).toString();
         try {
             var builder = new ProcessBuilder(properties.pythonCommand(), script, pdf.toString())
                     .redirectErrorStream(false);

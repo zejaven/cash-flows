@@ -5,4 +5,4 @@ spring:
 import:
   parser:
     python-command: python3
-    script-path: /app/parse_statement.py
+    scripts-dir: /app/parsers

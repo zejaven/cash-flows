@@ -8,7 +8,7 @@ import java.time.Duration;
  * @author Stanislav Vafin
  */
 @ConfigurationProperties(prefix = "import.parser")
-public record ImportParserProperties(String pythonCommand, String scriptPath, Duration timeout) {
+public record ImportParserProperties(String pythonCommand, String scriptsDir, Duration timeout) {
 
     public ImportParserProperties {
         if (timeout == null) {

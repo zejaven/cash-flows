@@ -12,7 +12,8 @@ WORKDIR /app
 # Statement parser runs as a python subprocess (see import.parser.* properties)
 RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
-COPY requirements.txt parse_statement.py /app/
+COPY requirements.txt /app/
+COPY parsers/ /app/parsers/
 RUN pip3 install --no-cache-dir --break-system-packages -r /app/requirements.txt
 COPY --from=build /build/target/cash-flows.jar cash-flows.jar
 EXPOSE 8080
