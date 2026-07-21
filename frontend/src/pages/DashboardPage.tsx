@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { apiErrorMessage, getAccounts, getSummary } from '../api';
+import { Link } from 'react-router-dom';
+import {
+  apiErrorMessage,
+  getAccounts,
+  getAveragingProfiles,
+  getForecast,
+  getRecurringQueue,
+  getSummary,
+  getTransactions,
+} from '../api';
 import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { Spinner } from '../components/Spinner';
@@ -7,27 +16,44 @@ import { Approx } from '../components/Money';
 import { TransactionModal } from '../components/TransactionForm';
 import { TransferModal } from '../components/TransferForm';
 import { convert, formatMoney } from '../utils/money';
-import { today } from '../utils/dates';
-import type { Account, Summary } from '../types';
+import { formatDate, today } from '../utils/dates';
+import type { Account, AveragingProfile, ForecastResponse, Summary } from '../types';
 
 export function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
+  const [queueCount, setQueueCount] = useState<number | null>(null);
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
+  const [profiles, setProfiles] = useState<AveragingProfile[]>([]);
+  const [forecast, setForecast] = useState<ForecastResponse | null>(null);
   const [modal, setModal] = useState<'expense' | 'transfer' | null>(null);
   const { displayCurrency, fxRates } = useSettings();
   const { toast } = useToast();
 
   const reload = useCallback(() => {
+    const day = today();
     getAccounts()
       .then(setAccounts)
       .catch((e) => toast(apiErrorMessage(e), true));
     if (displayCurrency !== 'ORIGINAL') {
-      getSummary({}, today(), displayCurrency)
+      getSummary({}, day, displayCurrency)
         .then(setSummary)
         .catch(() => setSummary(null));
     } else {
       setSummary(null);
     }
+    getRecurringQueue(day)
+      .then((queue) => setQueueCount(queue.length))
+      .catch(() => setQueueCount(null));
+    getTransactions({ needsReview: true }, 0, 1)
+      .then((page) => setReviewCount(page.totalItems))
+      .catch(() => setReviewCount(null));
+    getAveragingProfiles()
+      .then((list) => setProfiles(list.filter((profile) => !profile.archived)))
+      .catch(() => setProfiles([]));
+    getForecast(day, 12, displayCurrency === 'ORIGINAL' ? 'NZD' : displayCurrency)
+      .then(setForecast)
+      .catch(() => setForecast(null));
   }, [displayCurrency, toast]);
 
   useEffect(reload, [reload]);
@@ -93,6 +119,48 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
+      {(queueCount != null || reviewCount != null || forecast != null || profiles.length > 0) && (
+        <div className="card">
+          <h2>Needs attention</h2>
+          {reviewCount != null && (
+            <div className="settings-row">
+              <div className="grow">Transactions to categorize</div>
+              <Link to="/transactions?needsReview=true" className="amount">
+                <b className={reviewCount > 0 ? 'expense' : 'income'}>{reviewCount}</b>
+              </Link>
+            </div>
+          )}
+          {queueCount != null && (
+            <div className="settings-row">
+              <div className="grow">Recurring to confirm</div>
+              <Link to="/recurring" className="amount">
+                <b className={queueCount > 0 ? 'expense' : 'income'}>{queueCount}</b>
+              </Link>
+            </div>
+          )}
+          {forecast != null && (
+            <div className="settings-row">
+              <div className="grow">Forecast</div>
+              <Link to="/forecast" style={{ fontSize: 13 }}>
+                {forecast.firstNegative
+                  ? `⚠ below zero on ${formatDate(forecast.firstNegative.date)}`
+                  : 'all accounts positive in horizon →'}
+              </Link>
+            </div>
+          )}
+          {profiles.map((profile) => (
+            <div key={profile.id} className="settings-row">
+              <div className="grow muted">{profile.name}</div>
+              <span className="amount muted" style={{ fontSize: 13 }}>
+                {profile.effectiveValue != null
+                  ? `${formatMoney(profile.effectiveValue, profile.accountCurrency)}/${profile.granularity === 'DAILY' ? 'day' : 'mo'}`
+                  : '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {accounts.length === 0 && (
         <div className="placeholder">No accounts yet — add them in Settings</div>

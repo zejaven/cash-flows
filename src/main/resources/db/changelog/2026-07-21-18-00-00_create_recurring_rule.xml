@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-18-00-00_create_recurring_rule" author="zejaven">
+        <createTable tableName="recurring_rule" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_recurring_rule" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="type" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_recurring_rule_account"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="counter_account_id" type="bigint">
+                <constraints foreignKeyName="fk_recurring_rule_counter_account"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="category_id" type="bigint">
+                <constraints foreignKeyName="fk_recurring_rule_category"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="category" referencedColumnNames="id"/>
+            </column>
+            <column name="schedule_freq" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="day_of_month" type="int"/>
+            <column name="day_of_week" type="int"/>
+            <column name="interval_days" type="int"/>
+            <column name="start_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="end_date" type="date"/>
+            <column name="amount_strategy" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="amount" type="numeric(19,4)"/>
+            <column name="counter_amount" type="numeric(19,4)"/>
+            <column name="avg_lookback" type="int"/>
+            <column name="archived" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_type
+            CHECK (type IN ('EXPENSE', 'INCOME', 'TRANSFER'))</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_freq
+            CHECK (schedule_freq IN ('MONTHLY', 'WEEKLY', 'EVERY_N_DAYS'))</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_strategy
+            CHECK (amount_strategy IN ('FIXED', 'AVERAGE'))</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_day_of_month
+            CHECK (day_of_month IS NULL OR (day_of_month BETWEEN 1 AND 31))</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_day_of_week
+            CHECK (day_of_week IS NULL OR (day_of_week BETWEEN 1 AND 7))</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_interval
+            CHECK (interval_days IS NULL OR interval_days >= 1)</sql>
+        <rollback>
+            <dropTable tableName="recurring_rule" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-18-00-02_create_planned_transaction" author="zejaven">
+        <createTable tableName="planned_transaction" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_planned_transaction" nullable="false"/>
+            </column>
+            <column name="type" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="due_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_planned_transaction_account"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="counter_account_id" type="bigint">
+                <constraints foreignKeyName="fk_planned_transaction_counter_account"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="amount" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="counter_amount" type="numeric(19,4)"/>
+            <column name="category_id" type="bigint">
+                <constraints foreignKeyName="fk_planned_transaction_category"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="category" referencedColumnNames="id"/>
+            </column>
+            <column name="description" type="varchar(512)"/>
+            <column name="status" type="varchar(16)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transaction_id" type="bigint"/>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.planned_transaction
+            ADD CONSTRAINT fk_planned_transaction_transaction
+            FOREIGN KEY (transaction_id) REFERENCES cashflow.transaction (id) ON DELETE SET NULL</sql>
+        <sql>ALTER TABLE cashflow.planned_transaction ADD CONSTRAINT chk_planned_transaction_type
+            CHECK (type IN ('EXPENSE', 'INCOME', 'TRANSFER'))</sql>
+        <sql>ALTER TABLE cashflow.planned_transaction ADD CONSTRAINT chk_planned_transaction_status
+            CHECK (status IN ('PENDING', 'CONFIRMED', 'DISMISSED'))</sql>
+        <sql>ALTER TABLE cashflow.planned_transaction ADD CONSTRAINT chk_planned_transaction_amount
+            CHECK (amount &gt; 0)</sql>
+        <rollback>
+            <dropTable tableName="planned_transaction" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

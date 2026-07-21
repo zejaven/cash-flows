@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-18-00-03_create_averaging_profile" author="zejaven">
+        <createTable tableName="averaging_profile" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_averaging_profile" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_averaging_profile_account"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="granularity" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="period_from" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="period_to" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category_filter_mode" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="manual_override" type="numeric(19,4)"/>
+            <column name="archived" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.averaging_profile ADD CONSTRAINT chk_averaging_profile_granularity
+            CHECK (granularity IN ('DAILY', 'MONTHLY'))</sql>
+        <sql>ALTER TABLE cashflow.averaging_profile ADD CONSTRAINT chk_averaging_profile_filter_mode
+            CHECK (category_filter_mode IN ('INCLUDE', 'EXCLUDE'))</sql>
+        <rollback>
+            <dropTable tableName="averaging_profile" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

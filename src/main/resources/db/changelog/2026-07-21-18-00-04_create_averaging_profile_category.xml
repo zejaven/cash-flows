@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-18-00-04_create_averaging_profile_category" author="zejaven">
+        <createTable tableName="averaging_profile_category" schemaName="cashflow">
+            <column name="profile_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_averaging_profile_category_category"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="category" referencedColumnNames="id"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.averaging_profile_category
+            ADD CONSTRAINT pk_averaging_profile_category PRIMARY KEY (profile_id, category_id)</sql>
+        <sql>ALTER TABLE cashflow.averaging_profile_category
+            ADD CONSTRAINT fk_averaging_profile_category_profile
+            FOREIGN KEY (profile_id) REFERENCES cashflow.averaging_profile (id) ON DELETE CASCADE</sql>
+        <rollback>
+            <dropTable tableName="averaging_profile_category" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

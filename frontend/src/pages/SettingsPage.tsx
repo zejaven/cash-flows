@@ -74,6 +74,17 @@ export function SettingsPage() {
 
   return (
     <>
+      {/* Import/Reconcile left the mobile tab bar for Recurring/Forecast — keep
+          them reachable on phones (NFR-7: desktop-first, not unreachable) */}
+      <div className="card mobile-only-links">
+        <div className="settings-row">
+          <a className="grow" href="/import">
+            ⇪ Import bank statement
+          </a>
+          <a href="/reconcile">⚖ Reconcile balances</a>
+        </div>
+      </div>
+
       <div className="card">
         <h2>Display</h2>
         <div className="settings-row">

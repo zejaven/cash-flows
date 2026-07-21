@@ -15,4 +15,9 @@
     <include file="db/changelog/2026-07-21-16-00-02_create_category_rule.xml"/>
     <include file="db/changelog/2026-07-21-16-00-03_create_statement_account_skip.xml"/>
     <include file="db/changelog/2026-07-21-16-00-04_seed_correction_categories.xml"/>
+    <include file="db/changelog/2026-07-21-18-00-00_create_recurring_rule.xml"/>
+    <include file="db/changelog/2026-07-21-18-00-01_create_recurring_occurrence.xml"/>
+    <include file="db/changelog/2026-07-21-18-00-02_create_planned_transaction.xml"/>
+    <include file="db/changelog/2026-07-21-18-00-03_create_averaging_profile.xml"/>
+    <include file="db/changelog/2026-07-21-18-00-04_create_averaging_profile_category.xml"/>
 </databaseChangeLog>

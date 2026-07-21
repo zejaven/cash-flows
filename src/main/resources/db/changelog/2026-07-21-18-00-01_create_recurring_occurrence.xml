@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-18-00-01_create_recurring_occurrence" author="zejaven">
+        <createTable tableName="recurring_occurrence" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_recurring_occurrence" nullable="false"/>
+            </column>
+            <column name="rule_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_recurring_occurrence_rule"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="recurring_rule" referencedColumnNames="id"/>
+            </column>
+            <column name="due_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="status" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transaction_id" type="bigint"/>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <!-- SET NULL: deleting the created transaction re-opens the occurrence for cleanup -->
+        <sql>ALTER TABLE cashflow.recurring_occurrence
+            ADD CONSTRAINT fk_recurring_occurrence_transaction
+            FOREIGN KEY (transaction_id) REFERENCES cashflow.transaction (id) ON DELETE SET NULL</sql>
+        <sql>ALTER TABLE cashflow.recurring_occurrence ADD CONSTRAINT chk_recurring_occurrence_status
+            CHECK (status IN ('CONFIRMED', 'SKIPPED'))</sql>
+        <addUniqueConstraint tableName="recurring_occurrence" schemaName="cashflow"
+                             columnNames="rule_id, due_date"
+                             constraintName="uq_recurring_occurrence_rule_due"/>
+        <rollback>
+            <dropTable tableName="recurring_occurrence" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

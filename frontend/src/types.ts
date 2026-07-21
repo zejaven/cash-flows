@@ -228,3 +228,157 @@ export interface ReconciliationHistoryEntry {
   date: string;
   corrections: Correction[];
 }
+
+// --- stage 3: recurring, planned, averaging, forecast ---
+
+export type ScheduleFrequency = 'MONTHLY' | 'WEEKLY' | 'EVERY_N_DAYS';
+export type AmountStrategy = 'FIXED' | 'AVERAGE';
+export type PlannedStatus = 'PENDING' | 'CONFIRMED' | 'DISMISSED';
+export type AveragingGranularity = 'DAILY' | 'MONTHLY';
+export type CategoryFilterMode = 'INCLUDE' | 'EXCLUDE';
+
+export interface RecurringRule {
+  id: number;
+  name: string;
+  type: TransactionType;
+  accountId: number;
+  accountName: string;
+  accountCurrency: string;
+  counterAccountId: number | null;
+  counterAccountName: string | null;
+  counterAccountCurrency: string | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  categoryColor: string | null;
+  scheduleFreq: ScheduleFrequency;
+  dayOfMonth: number | null;
+  dayOfWeek: number | null;
+  intervalDays: number | null;
+  startDate: string;
+  endDate: string | null;
+  amountStrategy: AmountStrategy;
+  amount: number | null;
+  counterAmount: number | null;
+  avgLookback: number | null;
+  archived: boolean;
+  nextDue: string | null;
+  currentAmount: number | null;
+  approxAmount: boolean;
+}
+
+export interface RecurringRuleRequest {
+  name: string;
+  type: TransactionType;
+  accountId: number;
+  counterAccountId?: number | null;
+  categoryId?: number | null;
+  scheduleFreq: ScheduleFrequency;
+  dayOfMonth?: number | null;
+  dayOfWeek?: number | null;
+  intervalDays?: number | null;
+  startDate: string;
+  endDate?: string | null;
+  amountStrategy: AmountStrategy;
+  amount?: number | null;
+  counterAmount?: number | null;
+  avgLookback?: number | null;
+  archived?: boolean;
+}
+
+export interface QueueItem {
+  kind: 'RECURRING' | 'PLANNED';
+  ruleId: number | null;
+  plannedId: number | null;
+  name: string;
+  dueDate: string;
+  type: TransactionType;
+  accountId: number;
+  accountName: string;
+  accountCurrency: string;
+  counterAccountId: number | null;
+  counterAccountName: string | null;
+  counterAccountCurrency: string | null;
+  suggestedAmount: number | null;
+  suggestedCounterAmount: number | null;
+  approx: boolean;
+}
+
+export interface Planned {
+  id: number;
+  type: TransactionType;
+  dueDate: string;
+  accountId: number;
+  accountName: string;
+  accountCurrency: string;
+  counterAccountId: number | null;
+  counterAccountName: string | null;
+  counterAccountCurrency: string | null;
+  amount: number;
+  counterAmount: number | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  categoryColor: string | null;
+  description: string | null;
+  status: PlannedStatus;
+  transactionId: number | null;
+}
+
+export interface ComputedValue {
+  value: number;
+  dayCount: number;
+  txnCount: number;
+  total: number;
+  approx: boolean;
+}
+
+export interface AveragingProfile {
+  id: number;
+  name: string;
+  accountId: number;
+  accountName: string;
+  accountCurrency: string;
+  granularity: AveragingGranularity;
+  periodFrom: string;
+  periodTo: string;
+  categoryFilterMode: CategoryFilterMode;
+  categoryIds: number[];
+  manualOverride: number | null;
+  archived: boolean;
+  computed: ComputedValue;
+  effectiveValue: number | null;
+}
+
+export interface ForecastSeries {
+  dates: string[];
+  series: Record<string, number[]>;
+  total: number[];
+}
+
+export interface ForecastEventItem {
+  kind: 'RECURRING' | 'PLANNED' | 'PROFILE_DAILY' | 'PROFILE_MONTHLY' | 'TRANSACTION';
+  refId: number;
+  label: string;
+  accountId: number;
+  delta: number;
+  counterAccountId: number | null;
+  counterDelta: number | null;
+  approx: boolean;
+}
+
+export interface ForecastEventDay {
+  date: string;
+  items: ForecastEventItem[];
+  balances: Record<string, number>;
+  total: number;
+}
+
+export interface ForecastResponse {
+  currency: string;
+  approxTotal: boolean;
+  accounts: { id: number; name: string; currency: string }[];
+  history: ForecastSeries;
+  forecast: ForecastSeries;
+  eventDays: ForecastEventDay[];
+  negativeDates: { accountId: number; date: string }[];
+  firstNegative: { accountId: number; date: string } | null;
+}

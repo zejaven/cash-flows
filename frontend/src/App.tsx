@@ -6,6 +6,8 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { ImportPage } from './pages/ImportPage';
+import { RecurringPage } from './pages/RecurringPage';
+import { ForecastPage } from './pages/ForecastPage';
 import { ReconcilePage } from './pages/ReconcilePage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -13,6 +15,8 @@ const TITLES: Record<string, string> = {
   '': 'Dashboard',
   transactions: 'Transactions',
   import: 'Import',
+  recurring: 'Recurring & planned',
+  forecast: 'Forecast',
   reconcile: 'Reconcile',
   settings: 'Settings',
 };
@@ -59,6 +63,12 @@ export default function App() {
       <NavLink to="/import" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Import
       </NavLink>
+      <NavLink to="/recurring" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        Recurring
+      </NavLink>
+      <NavLink to="/forecast" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        Forecast
+      </NavLink>
       <NavLink to="/reconcile" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Reconcile
       </NavLink>
@@ -86,6 +96,8 @@ export default function App() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/import" element={<ImportPage />} />
+            <Route path="/recurring" element={<RecurringPage />} />
+            <Route path="/forecast" element={<ForecastPage />} />
             <Route path="/reconcile" element={<ReconcilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -99,11 +111,11 @@ export default function App() {
         <NavLink to="/transactions" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">≣</span>Txns
         </NavLink>
-        <NavLink to="/import" className={({ isActive }) => (isActive ? 'active' : '')}>
-          <span className="tab-icon">⇪</span>Import
+        <NavLink to="/recurring" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <span className="tab-icon">↻</span>Recur
         </NavLink>
-        <NavLink to="/reconcile" className={({ isActive }) => (isActive ? 'active' : '')}>
-          <span className="tab-icon">⚖</span>Reconcile
+        <NavLink to="/forecast" className={({ isActive }) => (isActive ? 'active' : '')}>
+          <span className="tab-icon">📈</span>Forecast
         </NavLink>
         <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
           <span className="tab-icon">⚙</span>Settings

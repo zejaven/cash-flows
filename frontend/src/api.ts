@@ -1,19 +1,26 @@
 import type {
   Account,
   AccountDecision,
+  AveragingProfile,
   Bank,
   CashDecision,
   Category,
   CategoryRule,
+  ComputedValue,
   Correction,
   DayTotalsResponse,
+  ForecastResponse,
   FxRates,
   ImportPreview,
   ImportReport,
   ImportRun,
   Page,
+  Planned,
+  QueueItem,
   ReconciliationHistoryEntry,
   ReconciliationRow,
+  RecurringRule,
+  RecurringRuleRequest,
   Summary,
   Transaction,
   TransactionFilters,
@@ -209,3 +216,54 @@ export const postReconciliation = (
 ) => request<Correction[]>('POST', '/api/reconciliation', { date, entries });
 export const getReconciliationHistory = () =>
   request<ReconciliationHistoryEntry[]>('GET', '/api/reconciliation/history');
+
+// --- recurring (stage 3)
+export const getRecurringRules = (today: string) =>
+  request<RecurringRule[]>('GET', `/api/recurring${query({ today })}`);
+export const createRecurringRule = (body: RecurringRuleRequest, today: string) =>
+  request<RecurringRule>('POST', `/api/recurring${query({ today })}`, body);
+export const updateRecurringRule = (id: number, body: RecurringRuleRequest, today: string) =>
+  request<RecurringRule>('PUT', `/api/recurring/${id}${query({ today })}`, body);
+export const deleteRecurringRule = (id: number) =>
+  request<void>('DELETE', `/api/recurring/${id}`);
+export const getRecurringQueue = (today: string) =>
+  request<QueueItem[]>('GET', `/api/recurring/queue${query({ today })}`);
+export const confirmRecurring = (body: {
+  ruleId: number;
+  dueDate: string;
+  date?: string;
+  amount?: number;
+  counterAmount?: number;
+}) => request<unknown>('POST', '/api/recurring/confirm', body);
+export const skipRecurring = (ruleId: number, dueDate: string) =>
+  request<unknown>('POST', '/api/recurring/skip', { ruleId, dueDate });
+
+// --- planned
+export const getPlanned = () => request<Planned[]>('GET', '/api/planned');
+export const createPlanned = (body: Partial<Planned>) =>
+  request<Planned>('POST', '/api/planned', body);
+export const updatePlanned = (id: number, body: Partial<Planned>) =>
+  request<Planned>('PUT', `/api/planned/${id}`, body);
+export const deletePlanned = (id: number) => request<void>('DELETE', `/api/planned/${id}`);
+export const confirmPlanned = (
+  id: number,
+  body: { date?: string; amount?: number; counterAmount?: number },
+) => request<Planned>('POST', `/api/planned/${id}/confirm`, body);
+export const dismissPlanned = (id: number) =>
+  request<Planned>('POST', `/api/planned/${id}/dismiss`, {});
+
+// --- averaging profiles
+export const getAveragingProfiles = () =>
+  request<AveragingProfile[]>('GET', '/api/averaging-profiles');
+export const createAveragingProfile = (body: unknown) =>
+  request<AveragingProfile>('POST', '/api/averaging-profiles', body);
+export const updateAveragingProfile = (id: number, body: unknown) =>
+  request<AveragingProfile>('PUT', `/api/averaging-profiles/${id}`, body);
+export const deleteAveragingProfile = (id: number) =>
+  request<void>('DELETE', `/api/averaging-profiles/${id}`);
+export const previewAveragingProfile = (body: unknown) =>
+  request<ComputedValue>('POST', '/api/averaging-profiles/preview', body);
+
+// --- forecast
+export const getForecast = (today: string, horizonMonths: number, currency: string) =>
+  request<ForecastResponse>('GET', `/api/forecast${query({ today, horizonMonths, currency })}`);
