@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 .idea/
+docs/
 
 # Результат parse_statement.py — содержит персональные данные
 statement.json
