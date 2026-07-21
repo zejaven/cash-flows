@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-14-00-06_seed_categories" author="zejaven">
+        <sql>
+            INSERT INTO cashflow.category (name, type, color) VALUES
+                ('groceries',       'EXPENSE', '#3ddc97'),
+                ('cafe',            'EXPENSE', '#e8b04b'),
+                ('fastfood',        'EXPENSE', '#e88f4b'),
+                ('taxi',            'EXPENSE', '#f4d06f'),
+                ('transport',       'EXPENSE', '#c9b458'),
+                ('rent',            'EXPENSE', '#5a83f7'),
+                ('mortgage',        'EXPENSE', '#4b64c9'),
+                ('electricity',     'EXPENSE', '#9a7bff'),
+                ('water',           'EXPENSE', '#5ac8f7'),
+                ('internet',        'EXPENSE', '#48b8d0'),
+                ('mobile',          'EXPENSE', '#41a6a6'),
+                ('subscriptions',   'EXPENSE', '#b58cff'),
+                ('sport',           'EXPENSE', '#6fd47e'),
+                ('health',          'EXPENSE', '#f47171'),
+                ('entertainment',   'EXPENSE', '#f78fb3'),
+                ('travel',          'EXPENSE', '#7cc4fa'),
+                ('fees',            'EXPENSE', '#8a96ab'),
+                ('cash-withdrawal', 'EXPENSE', '#a0a8b8'),
+                ('gifts-lending',   'EXPENSE', '#d98cf7'),
+                ('salary',          'INCOME',  '#3ddc97'),
+                ('translations',    'INCOME',  '#6fd4c8'),
+                ('other-income',    'INCOME',  '#8fd46f')
+        </sql>
+        <rollback>
+            <sql>DELETE FROM cashflow.category WHERE name IN
+                ('groceries','cafe','fastfood','taxi','transport','rent','mortgage','electricity',
+                 'water','internet','mobile','subscriptions','sport','health','entertainment',
+                 'travel','fees','cash-withdrawal','gifts-lending','salary','translations','other-income')</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

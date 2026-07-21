@@ -1,0 +1,146 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { apiErrorMessage, getAccounts, getSummary } from '../api';
+import { useSettings } from '../context/SettingsContext';
+import { useToast } from '../context/ToastContext';
+import { Spinner } from '../components/Spinner';
+import { Approx } from '../components/Money';
+import { TransactionModal } from '../components/TransactionForm';
+import { TransferModal } from '../components/TransferForm';
+import { convert, formatMoney } from '../utils/money';
+import { today } from '../utils/dates';
+import type { Account, Summary } from '../types';
+
+export function DashboardPage() {
+  const [accounts, setAccounts] = useState<Account[] | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [modal, setModal] = useState<'expense' | 'transfer' | null>(null);
+  const { displayCurrency, fxRates } = useSettings();
+  const { toast } = useToast();
+
+  const reload = useCallback(() => {
+    getAccounts()
+      .then(setAccounts)
+      .catch((e) => toast(apiErrorMessage(e), true));
+    if (displayCurrency !== 'ORIGINAL') {
+      getSummary({}, today(), displayCurrency)
+        .then(setSummary)
+        .catch(() => setSummary(null));
+    } else {
+      setSummary(null);
+    }
+  }, [displayCurrency, toast]);
+
+  useEffect(reload, [reload]);
+
+  const groups = useMemo(() => {
+    if (!accounts) return [];
+    const map = new Map<string, Account[]>();
+    for (const account of accounts) {
+      const key = account.bankName ?? 'Other';
+      map.set(key, [...(map.get(key) ?? []), account]);
+    }
+    // banks first (as encountered), "Other" last
+    return [...map.entries()].sort((a, b) =>
+      a[0] === 'Other' ? 1 : b[0] === 'Other' ? -1 : 0,
+    );
+  }, [accounts]);
+
+  const total = useMemo(() => {
+    if (!accounts || displayCurrency === 'ORIGINAL' || !fxRates) return null;
+    let sum = 0;
+    let incomplete = false;
+    for (const account of accounts) {
+      const converted = convert(account.balance, account.currency, displayCurrency, fxRates.rates);
+      if (converted == null) incomplete = true;
+      else sum += converted;
+    }
+    return { sum, incomplete };
+  }, [accounts, displayCurrency, fxRates]);
+
+  const groupTotal = (list: Account[]) => {
+    if (displayCurrency === 'ORIGINAL' || !fxRates) return null;
+    let sum = 0;
+    for (const account of list) {
+      const converted = convert(account.balance, account.currency, displayCurrency, fxRates.rates);
+      if (converted != null) sum += converted;
+    }
+    return sum;
+  };
+
+  if (accounts == null) return <Spinner />;
+
+  return (
+    <>
+      <div className="card total-card">
+        <h2>Total · all accounts</h2>
+        <div className="total amount">
+          {total ? `≈ ${formatMoney(total.sum, displayCurrency)}` : '—'}
+          {total?.incomplete && <span className="approx"> (partial)</span>}
+        </div>
+        {summary && (
+          <div className="sub amount">
+            −{formatMoney(summary.week.expense, summary.currency)} this week · −
+            {formatMoney(summary.month.expense, summary.currency)} this month · +
+            {formatMoney(summary.month.income, summary.currency)} income
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+          <button className="btn" onClick={() => setModal('expense')}>
+            + Expense
+          </button>
+          <button className="btn-ghost" onClick={() => setModal('transfer')}>
+            ⇄ Transfer
+          </button>
+        </div>
+      </div>
+
+      {accounts.length === 0 && (
+        <div className="placeholder">No accounts yet — add them in Settings</div>
+      )}
+
+      {groups.map(([groupName, groupAccounts]) => {
+        const sum = groupTotal(groupAccounts);
+        return (
+          <div key={groupName}>
+            <div className="group-header">
+              <span>{groupName}</span>
+              {sum != null && (
+                <span className="group-total amount">≈ {formatMoney(sum, displayCurrency)}</span>
+              )}
+            </div>
+            <div className="card" style={{ paddingTop: 6, paddingBottom: 6 }}>
+              {groupAccounts.map((account) => (
+                <div key={account.id} className="account-row">
+                  <div className="currency-chip">{account.currency}</div>
+                  <div className="info">
+                    <div className="name">{account.name}</div>
+                    <div className="meta">
+                      {account.accountNumber
+                        ? `…${account.accountNumber.slice(-4)}`
+                        : account.type.toLowerCase()}
+                    </div>
+                  </div>
+                  <div className="balances">
+                    <div className="native amount">
+                      {formatMoney(account.balance, account.currency)}
+                    </div>
+                    <div className="converted">
+                      <Approx value={account.balance} currency={account.currency} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+
+      <button className="fab" onClick={() => setModal('expense')} aria-label="Add expense">
+        +
+      </button>
+
+      {modal === 'expense' && <TransactionModal onClose={() => setModal(null)} onSaved={reload} />}
+      {modal === 'transfer' && <TransferModal onClose={() => setModal(null)} onSaved={reload} />}
+    </>
+  );
+}

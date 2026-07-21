@@ -1,0 +1,35 @@
+services:
+  app:
+    build: .
+    image: cash-flows
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-cashflows}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-cashflows-local}
+      APP_USERNAME: ${APP_USERNAME:-stas}
+      APP_PASSWORD: ${APP_PASSWORD:-local-dev-password}
+      JAVA_OPTS: -Xmx512m
+    ports:
+      - "8081:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: cash_flows
+      POSTGRES_USER: ${DB_USERNAME:-cashflows}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-cashflows-local}
+    ports:
+      - "5434:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-cashflows} -d cash_flows" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pg-data:

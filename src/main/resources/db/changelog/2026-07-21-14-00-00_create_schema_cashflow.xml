@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-14-00-00_create_schema_cashflow" author="zejaven">
+        <sql>CREATE SCHEMA IF NOT EXISTS cashflow</sql>
+        <rollback>
+            <sql>DROP SCHEMA IF EXISTS cashflow</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

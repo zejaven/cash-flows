@@ -1,0 +1,10 @@
+target/
+frontend/node_modules/
+frontend/dist/
+docs/
+.venv/
+.git/
+.idea/
+config/secrets.yml
+statement.json
+*.log

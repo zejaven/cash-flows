@@ -5,3 +5,14 @@ __pycache__/
 
 # Результат parse_statement.py — содержит персональные данные
 statement.json
+
+# Java / Maven
+target/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Секреты (шаблон — config/secrets.yml.example)
+config/secrets.yml
+.env

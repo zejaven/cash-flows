@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <include file="db/changelog/2026-07-21-14-00-00_create_schema_cashflow.xml"/>
+    <include file="db/changelog/2026-07-21-14-00-01_create_bank.xml"/>
+    <include file="db/changelog/2026-07-21-14-00-02_create_account.xml"/>
+    <include file="db/changelog/2026-07-21-14-00-03_create_category.xml"/>
+    <include file="db/changelog/2026-07-21-14-00-04_create_transaction.xml"/>
+    <include file="db/changelog/2026-07-21-14-00-05_create_fx_rate_snapshot.xml"/>
+    <include file="db/changelog/2026-07-21-14-00-06_seed_categories.xml"/>
+</databaseChangeLog>

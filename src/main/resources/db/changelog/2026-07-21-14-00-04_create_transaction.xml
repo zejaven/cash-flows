@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-14-00-04_create_transaction" author="zejaven">
+        <createTable tableName="transaction" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_transaction" nullable="false"/>
+            </column>
+            <column name="type" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="txn_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="account_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_transaction_account"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="amount" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="category_id" type="bigint">
+                <constraints foreignKeyName="fk_transaction_category" referencedTableSchemaName="cashflow"
+                             referencedTableName="category" referencedColumnNames="id"/>
+            </column>
+            <column name="description" type="varchar(512)"/>
+            <column name="original_currency" type="varchar(8)"/>
+            <column name="original_amount" type="numeric(19,4)"/>
+            <column name="counter_account_id" type="bigint">
+                <constraints foreignKeyName="fk_transaction_counter_account" referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="counter_amount" type="numeric(19,4)"/>
+            <column name="source" type="varchar(16)" defaultValue="MANUAL">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_type
+            CHECK (type IN ('EXPENSE', 'INCOME', 'TRANSFER'))</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_source
+            CHECK (source IN ('MANUAL', 'IMPORT'))</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_amount_positive
+            CHECK (amount > 0)</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_counter_amount_positive
+            CHECK (counter_amount IS NULL OR counter_amount > 0)</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_original_amount_positive
+            CHECK (original_amount IS NULL OR original_amount > 0)</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_transfer_fields
+            CHECK ((type = 'TRANSFER') = (counter_account_id IS NOT NULL AND counter_amount IS NOT NULL))</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_transfer_no_category
+            CHECK (type &lt;&gt; 'TRANSFER' OR category_id IS NULL)</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_counter_not_self
+            CHECK (counter_account_id IS NULL OR counter_account_id &lt;&gt; account_id)</sql>
+        <sql>ALTER TABLE cashflow.transaction ADD CONSTRAINT chk_transaction_original_pair
+            CHECK ((original_currency IS NULL) = (original_amount IS NULL))</sql>
+        <createIndex tableName="transaction" schemaName="cashflow" indexName="idx_transaction_date_id">
+            <column name="txn_date" descending="true"/>
+            <column name="id" descending="true"/>
+        </createIndex>
+        <createIndex tableName="transaction" schemaName="cashflow" indexName="idx_transaction_account_id">
+            <column name="account_id"/>
+        </createIndex>
+        <createIndex tableName="transaction" schemaName="cashflow" indexName="idx_transaction_counter_account_id">
+            <column name="counter_account_id"/>
+        </createIndex>
+        <createIndex tableName="transaction" schemaName="cashflow" indexName="idx_transaction_category_id">
+            <column name="category_id"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="transaction" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
