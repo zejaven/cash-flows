@@ -3,12 +3,17 @@ import type {
   AccountDecision,
   AveragingProfile,
   Bank,
+  CalcResult,
   CashDecision,
   Category,
   CategoryRule,
+  CompareRow,
   ComputedValue,
+  ConversionRoute,
+  ConversionStepDef,
   Correction,
   DayTotalsResponse,
+  FactVsForecast,
   ForecastResponse,
   FxRates,
   ImportPreview,
@@ -21,6 +26,8 @@ import type {
   ReconciliationRow,
   RecurringRule,
   RecurringRuleRequest,
+  StatsCategoriesResponse,
+  StatsGranularity,
   Summary,
   Transaction,
   TransactionFilters,
@@ -267,3 +274,36 @@ export const previewAveragingProfile = (body: unknown) =>
 // --- forecast
 export const getForecast = (today: string, horizonMonths: number, currency: string) =>
   request<ForecastResponse>('GET', `/api/forecast${query({ today, horizonMonths, currency })}`);
+
+// --- statistics (stage 4)
+export const getStatsCategories = (
+  from: string,
+  to: string,
+  granularity: StatsGranularity,
+  currency: string,
+  includeSystem: boolean,
+) =>
+  request<StatsCategoriesResponse>(
+    'GET',
+    `/api/stats/categories${query({ from, to, granularity, currency, includeSystem })}`,
+  );
+export const getFactVsForecast = (from: string, to: string, currency: string) =>
+  request<FactVsForecast>('GET', `/api/stats/fact-vs-forecast${query({ from, to, currency })}`);
+
+// --- conversion routes
+export const getConversionRoutes = () => request<ConversionRoute[]>('GET', '/api/conversion-routes');
+export const createConversionRoute = (body: {
+  name: string;
+  steps: ConversionStepDef[];
+  archived?: boolean;
+}) => request<ConversionRoute>('POST', '/api/conversion-routes', body);
+export const updateConversionRoute = (
+  id: number,
+  body: { name: string; steps: ConversionStepDef[]; archived?: boolean },
+) => request<ConversionRoute>('PUT', `/api/conversion-routes/${id}`, body);
+export const deleteConversionRoute = (id: number) =>
+  request<void>('DELETE', `/api/conversion-routes/${id}`);
+export const calculateRoute = (id: number, direction: 'FORWARD' | 'REVERSE', amount: number) =>
+  request<CalcResult>('POST', `/api/conversion-routes/${id}/calculate`, { direction, amount });
+export const compareRoutes = (from: string, to: string, amount: number) =>
+  request<CompareRow[]>('GET', `/api/conversion-routes/compare${query({ from, to, amount })}`);

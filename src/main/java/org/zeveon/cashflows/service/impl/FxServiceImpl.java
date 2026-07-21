@@ -53,6 +53,16 @@ public class FxServiceImpl implements FxService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<BigDecimal> convertAtDate(BigDecimal amount, String from, String to,
+                                              LocalDate date) {
+        if (from.equals(to)) {
+            return Optional.of(amount);
+        }
+        return ratesForDate(date).flatMap(rates -> convert(amount, from, to, rates));
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void snapshotToday() {
         // Snapshots are dated by UTC day; the "nearest snapshot <= date" rule makes

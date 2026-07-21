@@ -118,12 +118,8 @@ public class AggregationServiceImpl implements AggregationService {
      * flag) when no rate is available.
      */
     private BigDecimal convertAtOwnDate(Transaction transaction, String target, boolean[] incomplete) {
-        var from = transaction.getAccount().getCurrency();
-        if (from.equals(target)) {
-            return transaction.getAmount();
-        }
-        var converted = fxService.ratesForDate(transaction.getTxnDate())
-                .flatMap(rates -> fxService.convert(transaction.getAmount(), from, target, rates));
+        var converted = fxService.convertAtDate(transaction.getAmount(),
+                transaction.getAccount().getCurrency(), target, transaction.getTxnDate());
         if (converted.isEmpty()) {
             incomplete[0] = true;
             return null;

@@ -100,6 +100,16 @@ class ForecastServiceIntegrationTest {
             if (fromRate == null || toRate == null) return Optional.empty();
             return Optional.of(amount.multiply(BigDecimal.valueOf(toRate / fromRate)));
         });
+        when(fxService.convertAtDate(any(), any(), any(), any())).thenAnswer(invocation -> {
+            BigDecimal amount = invocation.getArgument(0);
+            String from = invocation.getArgument(1);
+            String to = invocation.getArgument(2);
+            if (from.equals(to)) return Optional.of(amount);
+            var fromRate = RATES.get(from.equals("USDT") ? "USD" : from);
+            var toRate = RATES.get(to.equals("USDT") ? "USD" : to);
+            if (fromRate == null || toRate == null) return Optional.empty();
+            return Optional.of(amount.multiply(BigDecimal.valueOf(toRate / fromRate)));
+        });
 
         usd = accountRepository.save(Account.builder()
                 .name("Alatau USD").currency("USD").type(AccountType.BANK)

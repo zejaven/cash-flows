@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- App icon: dark rounded tile with two counter-arrows (cash flows in/out).
+       Path geometry, not a text glyph — renders identically everywhere. -->
+  <rect width="512" height="512" rx="96" fill="#0d1017"/>
+  <!-- top arrow: left -> right, mint -->
+  <rect x="96" y="176" width="240" height="40" rx="20" fill="#3ddc97"/>
+  <path d="M320 136 L416 196 L320 256 Z" fill="#3ddc97"/>
+  <!-- bottom arrow: right -> left, blue -->
+  <rect x="176" y="296" width="240" height="40" rx="20" fill="#5a83f7"/>
+  <path d="M192 256 L96 316 L192 376 Z" fill="#5a83f7"/>
+</svg>

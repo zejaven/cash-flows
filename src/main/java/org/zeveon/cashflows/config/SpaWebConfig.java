@@ -1,5 +1,9 @@
 package org.zeveon.cashflows.config;
 
+import org.springframework.boot.web.embedded.tomcat.TomcatServletWebServerFactory;
+import org.springframework.boot.web.server.MimeMappings;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
@@ -17,6 +21,16 @@ import java.io.IOException;
  */
 @Configuration
 public class SpaWebConfig implements WebMvcConfigurer {
+
+    /** PWA manifest must not be served as octet-stream. */
+    @Bean
+    public WebServerFactoryCustomizer<TomcatServletWebServerFactory> mimeMappingCustomizer() {
+        return factory -> {
+            var mappings = new MimeMappings(MimeMappings.DEFAULT);
+            mappings.add("webmanifest", "application/manifest+json");
+            factory.setMimeMappings(mappings);
+        };
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

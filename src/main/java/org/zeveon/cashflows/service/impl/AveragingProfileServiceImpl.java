@@ -124,21 +124,16 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
         var approx = false;
         for (var transaction : transactions) {
             var from2 = transaction.getAccount().getCurrency();
-            BigDecimal value;
-            if (from2.equals(account.getCurrency())) {
-                value = transaction.getAmount();
-            } else {
-                var converted = fxService.ratesForDate(transaction.getTxnDate())
-                        .flatMap(rates -> fxService.convert(transaction.getAmount(), from2,
-                                account.getCurrency(), rates));
-                if (converted.isEmpty()) {
-                    approx = true;
-                    continue;
-                }
-                value = converted.get();
+            var converted = fxService.convertAtDate(transaction.getAmount(), from2,
+                    account.getCurrency(), transaction.getTxnDate());
+            if (converted.isEmpty()) {
+                approx = true;
+                continue;
+            }
+            if (!from2.equals(account.getCurrency())) {
                 approx = true;
             }
-            total = total.add(value);
+            total = total.add(converted.get());
             count++;
         }
 

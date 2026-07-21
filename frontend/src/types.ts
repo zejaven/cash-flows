@@ -382,3 +382,80 @@ export interface ForecastResponse {
   negativeDates: { accountId: number; date: string }[];
   firstNegative: { accountId: number; date: string } | null;
 }
+
+// --- stage 4: statistics, conversion routes ---
+
+export type StatsGranularity = 'MONTH' | 'WEEK';
+
+export interface StatsBucket {
+  periodStart: string;
+  periodEnd: string;
+  label: string;
+  total: number;
+  byCategory: { categoryId: number | null; name: string; color: string | null; amount: number }[];
+}
+
+export interface StatsCategoriesResponse {
+  currency: string;
+  incomplete: boolean;
+  buckets: StatsBucket[];
+}
+
+export interface FactVsForecast {
+  currency: string;
+  forecast: number;
+  actual: number;
+  diff: number;
+  diffPct: number | null;
+  approx: boolean;
+}
+
+export interface ConversionStepDef {
+  id?: number;
+  position?: number;
+  fromCurrency: string;
+  toCurrency: string;
+  rate: number;
+  rateInverted: boolean;
+  feeFixed: number;
+  feePct: number;
+}
+
+export interface ConversionRoute {
+  id: number;
+  name: string;
+  archived: boolean;
+  steps: ConversionStepDef[];
+  fromCurrency: string | null;
+  toCurrency: string | null;
+}
+
+export interface CalcStep {
+  position: number;
+  fromCurrency: string;
+  toCurrency: string;
+  amountIn: number;
+  amountOut: number;
+  rate: number;
+  rateInverted: boolean;
+  feeFixed: number;
+  feePct: number;
+}
+
+export interface CalcResult {
+  steps: CalcStep[];
+  amountIn: number;
+  amountOut: number;
+  effectiveRate: number | null;
+  marketRate: number | null;
+  lossPct: number | null;
+}
+
+export interface CompareRow {
+  routeId: number;
+  name: string;
+  effectiveRate: number;
+  amountOut: number;
+  lossPct: number | null;
+  best: boolean;
+}

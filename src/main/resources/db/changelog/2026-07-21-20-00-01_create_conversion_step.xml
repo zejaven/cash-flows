@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-20-00-01_create_conversion_step" author="zejaven">
+        <createTable tableName="conversion_step" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_conversion_step" nullable="false"/>
+            </column>
+            <column name="route_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="position" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="from_currency" type="varchar(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="to_currency" type="varchar(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rate" type="numeric(19,6)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rate_inverted" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fee_fixed" type="numeric(19,4)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="fee_pct" type="numeric(9,4)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.conversion_step
+            ADD CONSTRAINT fk_conversion_step_route
+            FOREIGN KEY (route_id) REFERENCES cashflow.conversion_route (id) ON DELETE CASCADE</sql>
+        <addUniqueConstraint tableName="conversion_step" schemaName="cashflow"
+                             columnNames="route_id, position"
+                             constraintName="uq_conversion_step_route_position"/>
+        <sql>ALTER TABLE cashflow.conversion_step ADD CONSTRAINT chk_conversion_step_rate
+            CHECK (rate &gt; 0)</sql>
+        <rollback>
+            <dropTable tableName="conversion_step" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

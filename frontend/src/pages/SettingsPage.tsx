@@ -83,6 +83,12 @@ export function SettingsPage() {
           </a>
           <a href="/reconcile">⚖ Reconcile balances</a>
         </div>
+        <div className="settings-row">
+          <a className="grow" href="/statistics">
+            📊 Statistics
+          </a>
+          <a href="/convert">⇄ Conversion routes</a>
+        </div>
       </div>
 
       <div className="card">

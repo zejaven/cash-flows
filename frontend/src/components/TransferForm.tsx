@@ -22,10 +22,13 @@ import type { Account, Transaction } from '../types';
  */
 export function TransferModal({
   existing,
+  prefill,
   onClose,
   onSaved,
 }: {
   existing?: Transaction;
+  /** Amounts computed by a conversion route (FR-5.5); accounts stay user-picked. */
+  prefill?: { amountSent: number; amountReceived: number; description: string };
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -34,12 +37,20 @@ export function TransferModal({
   const [date, setDate] = useState(existing?.date ?? today());
   const [fromId, setFromId] = useState<number | null>(existing?.accountId ?? null);
   const [toId, setToId] = useState<number | null>(existing?.counterAccountId ?? null);
-  const [amountSent, setAmountSent] = useState(existing ? String(existing.amount) : '');
+  const [amountSent, setAmountSent] = useState(
+    existing ? String(existing.amount) : prefill ? String(prefill.amountSent) : '',
+  );
   const [amountReceived, setAmountReceived] = useState(
-    existing?.counterAmount != null ? String(existing.counterAmount) : '',
+    existing?.counterAmount != null
+      ? String(existing.counterAmount)
+      : prefill
+        ? String(prefill.amountReceived)
+        : '',
   );
   const [fee, setFee] = useState('');
-  const [description, setDescription] = useState(existing?.description ?? '');
+  const [description, setDescription] = useState(
+    existing?.description ?? prefill?.description ?? '',
+  );
   const [busy, setBusy] = useState(false);
   const { fxRates } = useSettings();
   const { toast } = useToast();

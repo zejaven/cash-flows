@@ -31,6 +31,12 @@ public interface FxService {
     Optional<BigDecimal> convert(BigDecimal amount, String from, String to, Map<String, Double> rates);
 
     /**
+     * Converts with the rate table effective on the given date (FR-6.3) — the
+     * shared "own-date conversion" used by aggregates, averages and statistics.
+     */
+    Optional<BigDecimal> convertAtDate(BigDecimal amount, String from, String to, LocalDate date);
+
+    /**
      * Persists today's snapshot if the source is reachable and none exists yet.
      */
     void snapshotToday();

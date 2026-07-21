@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-21-20-00-02_restep_seed_category_colors" author="zejaven">
+        <comment>
+            The original seed palette fails the dataviz six-checks (cafe/fastfood
+            dE 8.2 normal vision; subscriptions/rent CVD 5.7; six colors outside
+            the lightness band). Re-stepped hue-spaced set validated OK against
+            both theme surfaces. Only untouched seed values are updated — user
+            customizations are preserved.
+        </comment>
+        <sql>
+            UPDATE cashflow.category SET color = '#1fa971' WHERE name = 'groceries'     AND color = '#3ddc97';
+            UPDATE cashflow.category SET color = '#a98421' WHERE name = 'cafe'          AND color = '#e8b04b';
+            UPDATE cashflow.category SET color = '#c44430' WHERE name = 'fastfood'      AND color = '#e88f4b';
+            UPDATE cashflow.category SET color = '#7d9126' WHERE name = 'taxi'          AND color = '#f4d06f';
+            UPDATE cashflow.category SET color = '#8f5bd9' WHERE name = 'subscriptions' AND color = '#b58cff';
+            UPDATE cashflow.category SET color = '#bf5b9e' WHERE name = 'health'        AND color = '#f47171';
+        </sql>
+        <rollback>
+            <sql>
+                UPDATE cashflow.category SET color = '#3ddc97' WHERE name = 'groceries'     AND color = '#1fa971';
+                UPDATE cashflow.category SET color = '#e8b04b' WHERE name = 'cafe'          AND color = '#a98421';
+                UPDATE cashflow.category SET color = '#e88f4b' WHERE name = 'fastfood'      AND color = '#c44430';
+                UPDATE cashflow.category SET color = '#f4d06f' WHERE name = 'taxi'          AND color = '#7d9126';
+                UPDATE cashflow.category SET color = '#b58cff' WHERE name = 'subscriptions' AND color = '#8f5bd9';
+                UPDATE cashflow.category SET color = '#f47171' WHERE name = 'health'        AND color = '#bf5b9e';
+            </sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

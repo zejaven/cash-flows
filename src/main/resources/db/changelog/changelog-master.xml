@@ -20,4 +20,7 @@
     <include file="db/changelog/2026-07-21-18-00-02_create_planned_transaction.xml"/>
     <include file="db/changelog/2026-07-21-18-00-03_create_averaging_profile.xml"/>
     <include file="db/changelog/2026-07-21-18-00-04_create_averaging_profile_category.xml"/>
+    <include file="db/changelog/2026-07-21-20-00-00_create_conversion_route.xml"/>
+    <include file="db/changelog/2026-07-21-20-00-01_create_conversion_step.xml"/>
+    <include file="db/changelog/2026-07-21-20-00-02_restep_seed_category_colors.xml"/>
 </databaseChangeLog>

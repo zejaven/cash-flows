@@ -8,6 +8,8 @@ import { TransactionsPage } from './pages/TransactionsPage';
 import { ImportPage } from './pages/ImportPage';
 import { RecurringPage } from './pages/RecurringPage';
 import { ForecastPage } from './pages/ForecastPage';
+import { StatisticsPage } from './pages/StatisticsPage';
+import { ConvertPage } from './pages/ConvertPage';
 import { ReconcilePage } from './pages/ReconcilePage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -17,6 +19,8 @@ const TITLES: Record<string, string> = {
   import: 'Import',
   recurring: 'Recurring & planned',
   forecast: 'Forecast',
+  statistics: 'Statistics',
+  convert: 'Convert',
   reconcile: 'Reconcile',
   settings: 'Settings',
 };
@@ -69,6 +73,12 @@ export default function App() {
       <NavLink to="/forecast" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Forecast
       </NavLink>
+      <NavLink to="/statistics" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        Statistics
+      </NavLink>
+      <NavLink to="/convert" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        Convert
+      </NavLink>
       <NavLink to="/reconcile" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Reconcile
       </NavLink>
@@ -98,6 +108,8 @@ export default function App() {
             <Route path="/import" element={<ImportPage />} />
             <Route path="/recurring" element={<RecurringPage />} />
             <Route path="/forecast" element={<ForecastPage />} />
+            <Route path="/statistics" element={<StatisticsPage />} />
+            <Route path="/convert" element={<ConvertPage />} />
             <Route path="/reconcile" element={<ReconcilePage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

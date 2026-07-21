@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { formatMoney } from '../utils/money';
 import { formatDate } from '../utils/dates';
+import { compact, niceStep } from '../utils/chart';
 
 interface Point {
   date: string;
@@ -241,14 +242,3 @@ export function ForecastChart({
   );
 }
 
-function compact(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(value) >= 1_000) return `${Math.round(value / 1_000)}k`;
-  return String(Math.round(value));
-}
-
-function niceStep(raw: number): number {
-  const power = Math.pow(10, Math.floor(Math.log10(Math.max(raw, 1))));
-  const candidates = [1, 2, 5, 10].map((m) => m * power);
-  return candidates.find((c) => c >= raw) ?? candidates[3];
-}
