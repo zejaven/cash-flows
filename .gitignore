@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.idea/
+
+# Результат parse_statement.py — содержит персональные данные
+statement.json
