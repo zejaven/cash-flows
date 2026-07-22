@@ -472,6 +472,9 @@ function GenerateParserPanel({
   const closeRef = useRef<(() => void) | null>(null);
   const seenSeq = useRef<Set<number>>(new Set());
   const logRef = useRef<HTMLDivElement>(null);
+  // stick to the bottom only while the user is already there — scrolling up to
+  // read history must not be undone by new log lines
+  const atBottomRef = useRef(true);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -492,7 +495,7 @@ function GenerateParserPanel({
   }, []);
 
   useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
+    if (atBottomRef.current) logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [log]);
 
   function subscribe(taskId: string) {
@@ -594,6 +597,10 @@ function GenerateParserPanel({
         ))}
         <div
           ref={logRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+          }}
           className="mono"
           style={{
             maxHeight: 320,

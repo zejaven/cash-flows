@@ -232,9 +232,13 @@ public class AgentCliRunner {
                 return;
             }
             switch (node.path("type").asText()) {
-                // Claude stream-json
-                case "system" -> sink.accept(new AgentEvent(AgentEvent.Kind.INFO,
-                        "session started (model %s)".formatted(node.path("model").asText("?"))));
+                // Claude stream-json: many "system" subtypes exist — only init marks session start
+                case "system" -> {
+                    if ("init".equals(node.path("subtype").asText())) {
+                        sink.accept(new AgentEvent(AgentEvent.Kind.INFO,
+                                "session started (model %s)".formatted(node.path("model").asText("?"))));
+                    }
+                }
                 case "stream_event" -> claudeStreamEvent(node.path("event"), sink);
                 case "assistant" -> claudeAssistant(node.path("message"), sink);
                 case "result" -> {
