@@ -17,3 +17,6 @@ frontend/dist/
 # Секреты (шаблон — config/secrets.yml.example)
 config/secrets.yml
 .env
+
+# AI parser generator staging area (temp PDFs, agent scratch)
+.generator-tmp/

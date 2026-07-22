@@ -459,3 +459,51 @@ export interface CompareRow {
   lossPct: number | null;
   best: boolean;
 }
+
+// --- AI parser generator (FR-4.10)
+
+export interface ParserInfo {
+  id: string;
+  script: string;
+}
+
+export type AgentProvider = 'CLAUDE' | 'CODEX';
+
+export interface ProviderOption {
+  id: AgentProvider;
+  label: string;
+  available: boolean;
+  version: string | null;
+  error: string | null;
+  models: string[];
+}
+
+export interface GeneratorOptions {
+  enabled: boolean;
+  providers: ProviderOption[];
+}
+
+export interface GeneratorSettings {
+  provider: AgentProvider;
+  claudeModel: string | null;
+  codexModel: string | null;
+}
+
+export type GeneratorStatus = 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+
+export interface GeneratorTask {
+  taskId: string;
+  status: GeneratorStatus;
+  parserId: string | null;
+  scriptFile: string | null;
+  error: string | null;
+  warnings: string[];
+  startedAt: string;
+  finishedAt: string | null;
+}
+
+export interface GeneratorLogEvent {
+  seq: number;
+  kind: 'text' | 'activity' | 'info' | 'error';
+  text: string;
+}

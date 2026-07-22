@@ -7,7 +7,8 @@ spring:
   servlet:
     multipart:
       max-file-size: 20MB
-      max-request-size: 20MB
+      # several sample statements can travel in one parser-generation request
+      max-request-size: 100MB
   datasource:
     driver-class-name: org.postgresql.Driver
   jpa:
@@ -29,3 +30,14 @@ import:
     python-command: python
     scripts-dir: parsers
     timeout: 120s
+  generator:
+    enabled: true
+    timeout: 15m
+    work-dir: .generator-tmp
+    prompt-file: prompts/generate-parser.md
+    claude:
+      command: claude
+      models: ["", "claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6"]
+    codex:
+      command: codex
+      models: ["", "gpt-5.5-codex", "gpt-5.5"]

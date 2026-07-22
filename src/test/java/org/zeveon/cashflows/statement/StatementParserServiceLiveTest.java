@@ -31,7 +31,7 @@ class StatementParserServiceLiveTest {
         var pdf = Path.of("docs", "Alatau City Bank", "Bank statement-2026-07-20 185719.pdf");
         assertThat(Files.exists(pdf)).isTrue();
 
-        var dto = service.parse(StatementParserServiceImpl.ALATAU_PARSER_ID, pdf);
+        var dto = service.parse("alatau-pdf", pdf);
 
         assertThat(dto.accounts()).hasSize(4);
         assertThat(dto.accounts().stream().mapToInt(a -> a.transactions().size()).sum())
@@ -44,7 +44,7 @@ class StatementParserServiceLiveTest {
         var pdf = Path.of("docs", "BNZ", "YouMoney_2026-03-12_1.pdf");
         assertThat(Files.exists(pdf)).isTrue();
 
-        var dto = service.parse(StatementParserServiceImpl.BNZ_PARSER_ID, pdf);
+        var dto = service.parse("bnz-pdf", pdf);
 
         assertThat(dto.bank().name()).isEqualTo("BNZ");
         assertThat(dto.accounts()).hasSize(1);

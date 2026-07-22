@@ -10,10 +10,14 @@ import {
   getAccounts,
   getBanks,
   getCategories,
+  getGeneratorOptions,
+  getGeneratorSettings,
+  getParsers,
   logout,
   updateAccount,
   updateBank,
   updateCategory,
+  updateGeneratorSettings,
 } from '../api';
 import { DISPLAY_CURRENCIES, useSettings, type DisplayCurrency } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
@@ -22,7 +26,17 @@ import { Spinner } from '../components/Spinner';
 import { CategoryRulesCard } from '../components/CategoryRules';
 import { formatMoney, KNOWN_CURRENCIES } from '../utils/money';
 import { formatDate, today } from '../utils/dates';
-import type { Account, AccountType, Bank, Category, CategoryType } from '../types';
+import type {
+  Account,
+  AccountType,
+  AgentProvider,
+  Bank,
+  Category,
+  CategoryType,
+  GeneratorOptions,
+  GeneratorSettings,
+  ParserInfo,
+} from '../types';
 
 export function SettingsPage() {
   const { displayCurrency, setDisplayCurrency, fxRates } = useSettings();
@@ -33,11 +47,13 @@ export function SettingsPage() {
   const [bankModal, setBankModal] = useState<Bank | 'new' | null>(null);
   const [accountModal, setAccountModal] = useState<Account | 'new' | null>(null);
   const [categoryModal, setCategoryModal] = useState<Category | 'new' | null>(null);
+  const [parsers, setParsers] = useState<ParserInfo[]>([]);
 
   const reload = useCallback(() => {
     getBanks().then(setBanks).catch((e) => toast(apiErrorMessage(e), true));
     getAccounts(true).then(setAccounts).catch((e) => toast(apiErrorMessage(e), true));
     getCategories(true).then(setCategories).catch((e) => toast(apiErrorMessage(e), true));
+    getParsers().then(setParsers).catch(() => setParsers([]));
   }, [toast]);
 
   useEffect(reload, [reload]);
@@ -253,9 +269,12 @@ export function SettingsPage() {
 
       <CategoryRulesCard />
 
+      <GeneratorSettingsCard />
+
       {bankModal && (
         <BankForm
           existing={bankModal === 'new' ? null : bankModal}
+          parsers={parsers}
           onClose={() => setBankModal(null)}
           onSaved={reload}
         />
@@ -281,16 +300,21 @@ export function SettingsPage() {
 
 function BankForm({
   existing,
+  parsers,
   onClose,
   onSaved,
 }: {
   existing: Bank | null;
+  parsers: ParserInfo[];
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [name, setName] = useState(existing?.name ?? '');
   const [parserId, setParserId] = useState(existing?.parserId ?? '');
   const { toast } = useToast();
+  // a bank may point at a script that was renamed/removed — keep the stale
+  // binding visible instead of silently dropping it on the next save
+  const staleParser = parserId && !parsers.some((p) => p.id === parserId);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -313,13 +337,16 @@ function BankForm({
           <input id="bank-name" value={name} onChange={(e) => setName(e.target.value)} required />
         </div>
         <div className="form-row">
-          <label htmlFor="bank-parser">Statement parser (stage 2)</label>
-          <input
-            id="bank-parser"
-            value={parserId}
-            onChange={(e) => setParserId(e.target.value)}
-            placeholder="alatau-pdf"
-          />
+          <label htmlFor="bank-parser">Statement parser</label>
+          <select id="bank-parser" value={parserId} onChange={(e) => setParserId(e.target.value)}>
+            <option value="">— no parser —</option>
+            {parsers.map((parser) => (
+              <option key={parser.id} value={parser.id}>
+                {parser.id}
+              </option>
+            ))}
+            {staleParser && <option value={parserId}>{parserId} (script missing)</option>}
+          </select>
         </div>
         <div className="form-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>
@@ -329,6 +356,97 @@ function BankForm({
         </div>
       </form>
     </Modal>
+  );
+}
+
+/**
+ * App-wide AI provider/model for the parser generator (FR-4.10). Hidden note
+ * when the feature is disabled (Docker) — generation is local-only.
+ */
+function GeneratorSettingsCard() {
+  const [options, setOptions] = useState<GeneratorOptions | null>(null);
+  const [settings, setSettings] = useState<GeneratorSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    getGeneratorOptions().then(setOptions).catch(() => setOptions({ enabled: false, providers: [] }));
+    getGeneratorSettings().then(setSettings).catch(() => {});
+  }, []);
+
+  if (options == null || settings == null) return null;
+
+  const provider = options.providers.find((p) => p.id === settings.provider);
+  const model = settings.provider === 'CLAUDE' ? settings.claudeModel : settings.codexModel;
+  const setModel = (value: string) =>
+    setSettings(
+      settings.provider === 'CLAUDE'
+        ? { ...settings, claudeModel: value || null }
+        : { ...settings, codexModel: value || null },
+    );
+
+  async function save() {
+    if (!settings) return;
+    setSaving(true);
+    try {
+      setSettings(await updateGeneratorSettings(settings));
+      toast('AI generator settings saved');
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="card">
+      <h2>AI parser generator</h2>
+      {!options.enabled ? (
+        <div className="placeholder">
+          Available only when the app runs locally (needs the claude/codex CLI on this machine).
+        </div>
+      ) : (
+        <>
+          <div className="settings-row">
+            <div className="grow">
+              <div>Provider</div>
+              <div className="muted" style={{ fontSize: 12.5 }}>
+                {provider?.available
+                  ? `CLI found: ${provider.version ?? ''}`
+                  : `CLI not available: ${provider?.error ?? 'unknown'}`}
+              </div>
+            </div>
+            <select
+              style={{ width: 'auto' }}
+              value={settings.provider}
+              onChange={(e) => setSettings({ ...settings, provider: e.target.value as AgentProvider })}
+            >
+              {options.providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                  {p.available ? '' : ' (unavailable)'}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="settings-row">
+            <div className="grow">Model</div>
+            <select style={{ width: 'auto' }} value={model ?? ''} onChange={(e) => setModel(e.target.value)}>
+              {(provider?.models ?? ['']).map((m) => (
+                <option key={m} value={m}>
+                  {m === '' ? 'CLI default' : m}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="form-actions">
+            <button className="btn" onClick={save} disabled={saving}>
+              Save
+            </button>
+          </div>
+        </>
+      )}
+    </div>
   );
 }
 

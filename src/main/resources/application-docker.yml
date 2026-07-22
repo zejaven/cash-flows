@@ -6,3 +6,6 @@ import:
   parser:
     python-command: python3
     scripts-dir: /app/parsers
+  # no agent CLIs and no repo inside the container — generation is local-only
+  generator:
+    enabled: false

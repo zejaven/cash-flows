@@ -16,9 +16,14 @@ import type {
   FactVsForecast,
   ForecastResponse,
   FxRates,
+  GeneratorLogEvent,
+  GeneratorOptions,
+  GeneratorSettings,
+  GeneratorTask,
   ImportPreview,
   ImportReport,
   ImportRun,
+  ParserInfo,
   Page,
   Planned,
   QueueItem,
@@ -194,6 +199,68 @@ export async function previewImport(bankId: number, file: File): Promise<ImportP
 export const confirmImport = (token: string, accounts: AccountDecision[], cash: CashDecision[]) =>
   request<ImportReport>('POST', '/api/imports/confirm', { token, accounts, cash });
 export const getImportRuns = () => request<ImportRun[]>('GET', '/api/imports');
+
+// --- AI parser generator (FR-4.10)
+export const getParsers = () => request<ParserInfo[]>('GET', '/api/parsers');
+export const getGeneratorOptions = () =>
+  request<GeneratorOptions>('GET', '/api/parser-generator/options');
+export const getGeneratorSettings = () =>
+  request<GeneratorSettings>('GET', '/api/parser-generator/settings');
+export const updateGeneratorSettings = (body: GeneratorSettings) =>
+  request<GeneratorSettings>('PUT', '/api/parser-generator/settings', body);
+export const getCurrentGeneration = async (): Promise<GeneratorTask | null> =>
+  (await request<GeneratorTask | undefined>('GET', '/api/parser-generator/current')) ?? null;
+export const cancelGeneration = (taskId: string) =>
+  request<void>('POST', `/api/parser-generator/${taskId}/cancel`);
+
+export async function startParserGeneration(
+  files: File[],
+  bankName: string,
+  scriptName: string,
+): Promise<{ taskId: string }> {
+  const form = new FormData();
+  for (const file of files) form.append('files', file);
+  form.set('bankName', bankName);
+  form.set('scriptName', scriptName);
+  // no Content-Type header: the browser sets the multipart boundary itself
+  const response = await fetch('/api/parser-generator', {
+    method: 'POST',
+    headers: { 'X-XSRF-TOKEN': csrfToken() },
+    body: form,
+  });
+  if (response.status === 401 && unauthorizedHandler) unauthorizedHandler();
+  if (!response.ok) {
+    let errorBody: unknown = null;
+    try {
+      errorBody = await response.json();
+    } catch {
+      /* not json */
+    }
+    throw new ApiError(response.status, errorBody);
+  }
+  return response.json();
+}
+
+/**
+ * Subscribes to the generation SSE stream (replays the buffered log first).
+ * Returns a close function; the terminal state always arrives as a `status`
+ * event, after which the server completes the stream.
+ */
+export function openGenerationEvents(
+  taskId: string,
+  onLog: (event: GeneratorLogEvent) => void,
+  onStatus: (task: GeneratorTask) => void,
+): () => void {
+  const source = new EventSource(`/api/parser-generator/${taskId}/events`);
+  source.addEventListener('log', (e) => onLog(JSON.parse((e as MessageEvent).data)));
+  source.addEventListener('status', (e) => {
+    onStatus(JSON.parse((e as MessageEvent).data));
+    source.close();
+  });
+  // on transient drops EventSource reconnects and the server replays the
+  // buffered log — consumers dedupe by seq; after `status` we close ourselves
+  return () => source.close();
+}
 
 // --- category rules
 export const getCategoryRules = () => request<CategoryRule[]>('GET', '/api/category-rules');

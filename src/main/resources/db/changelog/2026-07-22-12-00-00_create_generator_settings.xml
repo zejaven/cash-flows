@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-22-12-00-00_create_generator_settings" author="zejaven">
+        <createTable tableName="generator_settings" schemaName="cashflow">
+            <column name="id" type="bigint">
+                <constraints primaryKey="true" primaryKeyName="pk_generator_settings" nullable="false"/>
+            </column>
+            <column name="provider" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="claude_model" type="varchar(64)"/>
+            <column name="codex_model" type="varchar(64)"/>
+            <column name="updated_at" type="timestamptz">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <insert tableName="generator_settings" schemaName="cashflow">
+            <column name="id" valueNumeric="1"/>
+            <column name="provider" value="CLAUDE"/>
+            <column name="updated_at" valueComputed="now()"/>
+        </insert>
+        <rollback>
+            <dropTable tableName="generator_settings" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

@@ -11,16 +11,21 @@ import org.zeveon.cashflows.exception.ConflictException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Runs the per-bank statement parser as a subprocess (design decision: the
- * Python/pdfplumber parser is battle-tested and is not ported to Java). The
- * registry of parsers is code: parserId -> script; currently one entry.
+ * Python/pdfplumber parsers are battle-tested and are not ported to Java). The
+ * registry of parsers is a naming convention over the scripts directory
+ * (FR-4.2): script {@code <stem>.py} ⇄ parser id {@code <stem>-pdf}. Dropping a
+ * new script into the directory — by hand or via the AI parser generator
+ * (FR-4.10) — makes it available without code changes.
  *
  * @author Stanislav Vafin
  */
@@ -28,13 +33,9 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class StatementParserServiceImpl implements StatementParserService {
 
-    public static final String ALATAU_PARSER_ID = "alatau-pdf";
-    public static final String BNZ_PARSER_ID = "bnz-pdf";
-
-    /** parserId -> script file inside {@code import.parser.scripts-dir} (FR-4.2). */
-    private static final Map<String, String> REGISTRY = Map.of(
-            ALATAU_PARSER_ID, "alatau.py",
-            BNZ_PARSER_ID, "bnz.py");
+    private static final String PARSER_ID_SUFFIX = "-pdf";
+    /** Stems are slugs: no dots, slashes or uppercase — this is also the path-traversal gate. */
+    private static final Pattern STEM_PATTERN = Pattern.compile("^[a-z][a-z0-9_-]*$");
 
     private final ImportParserProperties properties;
     private final ObjectMapper objectMapper;
@@ -48,13 +49,9 @@ public class StatementParserServiceImpl implements StatementParserService {
 
     @Override
     public StatementDto parse(String parserId, Path pdf) {
-        var scriptName = REGISTRY.get(parserId);
-        if (scriptName == null) {
-            throw new ConflictException("Unknown statement parser: " + parserId);
-        }
-        var script = Path.of(properties.scriptsDir(), scriptName).toString();
+        var script = resolveScript(parserId);
         try {
-            var builder = new ProcessBuilder(properties.pythonCommand(), script, pdf.toString())
+            var builder = new ProcessBuilder(properties.pythonCommand(), script.toString(), pdf.toString())
                     .redirectErrorStream(false);
             // Russian mismatch messages on Windows default to cp1251 otherwise
             builder.environment().put("PYTHONIOENCODING", "utf-8");
@@ -81,6 +78,41 @@ public class StatementParserServiceImpl implements StatementParserService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Statement parsing interrupted", e);
         }
+    }
+
+    @Override
+    public List<ParserInfo> availableParsers() {
+        var scriptsDir = Path.of(properties.scriptsDir());
+        if (!Files.isDirectory(scriptsDir)) {
+            return List.of();
+        }
+        try (Stream<Path> files = Files.list(scriptsDir)) {
+            return files.map(path -> path.getFileName().toString())
+                    .filter(name -> name.endsWith(".py"))
+                    .map(name -> name.substring(0, name.length() - ".py".length()))
+                    .filter(stem -> STEM_PATTERN.matcher(stem).matches())
+                    .sorted()
+                    .map(stem -> new ParserInfo(stem + PARSER_ID_SUFFIX, stem + ".py"))
+                    .toList();
+        } catch (IOException e) {
+            throw new RuntimeException("Could not list parser scripts: " + e.getMessage(), e);
+        }
+    }
+
+    private Path resolveScript(String parserId) {
+        if (parserId == null || !parserId.endsWith(PARSER_ID_SUFFIX)) {
+            throw new ConflictException("Unknown statement parser: " + parserId);
+        }
+        var stem = parserId.substring(0, parserId.length() - PARSER_ID_SUFFIX.length());
+        if (!STEM_PATTERN.matcher(stem).matches()) {
+            throw new ConflictException("Unknown statement parser: " + parserId);
+        }
+        var scriptsDir = Path.of(properties.scriptsDir()).toAbsolutePath().normalize();
+        var script = scriptsDir.resolve(stem + ".py").normalize();
+        if (!script.startsWith(scriptsDir) || !Files.isRegularFile(script)) {
+            throw new ConflictException("Unknown statement parser: " + parserId);
+        }
+        return script;
     }
 
     private static CompletableFuture<String> readAsync(InputStream stream) {
