@@ -21,11 +21,12 @@ import java.util.stream.Stream;
 
 /**
  * Runs the per-bank statement parser as a subprocess (design decision: the
- * Python/pdfplumber parsers are battle-tested and are not ported to Java). The
- * registry of parsers is a naming convention over the scripts directory
- * (FR-4.2): script {@code <stem>.py} ⇄ parser id {@code <stem>-pdf}. Dropping a
- * new script into the directory — by hand or via the AI parser generator
- * (FR-4.10) — makes it available without code changes.
+ * Python parsers are battle-tested and are not ported to Java). The registry of
+ * parsers is a naming convention over the scripts directory (FR-4.2): script
+ * {@code <stem>.py} ⇄ parser id {@code <stem>}. Dropping a new script into the
+ * directory — by hand or via the AI parser generator (FR-4.10) — makes it
+ * available without code changes. The input file format (PDF, CSV, zip …) is
+ * the parser's own business; the backend only ships the file to it.
  *
  * @author Stanislav Vafin
  */
@@ -33,8 +34,7 @@ import java.util.stream.Stream;
 @Service
 public class StatementParserServiceImpl implements StatementParserService {
 
-    private static final String PARSER_ID_SUFFIX = "-pdf";
-    /** Stems are slugs: no dots, slashes or uppercase — this is also the path-traversal gate. */
+    /** Ids are slugs: no dots, slashes or uppercase — this is also the path-traversal gate. */
     private static final Pattern STEM_PATTERN = Pattern.compile("^[a-z][a-z0-9_-]*$");
 
     private final ImportParserProperties properties;
@@ -92,7 +92,7 @@ public class StatementParserServiceImpl implements StatementParserService {
                     .map(name -> name.substring(0, name.length() - ".py".length()))
                     .filter(stem -> STEM_PATTERN.matcher(stem).matches())
                     .sorted()
-                    .map(stem -> new ParserInfo(stem + PARSER_ID_SUFFIX, stem + ".py"))
+                    .map(stem -> new ParserInfo(stem, stem + ".py"))
                     .toList();
         } catch (IOException e) {
             throw new RuntimeException("Could not list parser scripts: " + e.getMessage(), e);
@@ -100,15 +100,11 @@ public class StatementParserServiceImpl implements StatementParserService {
     }
 
     private Path resolveScript(String parserId) {
-        if (parserId == null || !parserId.endsWith(PARSER_ID_SUFFIX)) {
-            throw new ConflictException("Unknown statement parser: " + parserId);
-        }
-        var stem = parserId.substring(0, parserId.length() - PARSER_ID_SUFFIX.length());
-        if (!STEM_PATTERN.matcher(stem).matches()) {
+        if (parserId == null || !STEM_PATTERN.matcher(parserId).matches()) {
             throw new ConflictException("Unknown statement parser: " + parserId);
         }
         var scriptsDir = Path.of(properties.scriptsDir()).toAbsolutePath().normalize();
-        var script = scriptsDir.resolve(stem + ".py").normalize();
+        var script = scriptsDir.resolve(parserId + ".py").normalize();
         if (!script.startsWith(scriptsDir) || !Files.isRegularFile(script)) {
             throw new ConflictException("Unknown statement parser: " + parserId);
         }

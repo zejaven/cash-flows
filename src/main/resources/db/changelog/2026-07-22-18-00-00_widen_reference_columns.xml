@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- Crypto statement references (ByBit Tx ID = 0x + 64 hex = 66 chars) overflow
+         varchar(64); widen reference and the import keys composed from it. Widening a
+         varchar is metadata-only in Postgres — no table rewrite. -->
+    <changeSet id="2026-07-22-18-00-00_widen_reference_columns" author="zejaven">
+        <modifyDataType tableName="transaction" schemaName="cashflow"
+                        columnName="reference" newDataType="varchar(128)"/>
+        <modifyDataType tableName="transaction" schemaName="cashflow"
+                        columnName="import_key" newDataType="varchar(256)"/>
+        <modifyDataType tableName="transaction" schemaName="cashflow"
+                        columnName="counter_import_key" newDataType="varchar(256)"/>
+        <rollback>
+            <modifyDataType tableName="transaction" schemaName="cashflow"
+                            columnName="reference" newDataType="varchar(64)"/>
+            <modifyDataType tableName="transaction" schemaName="cashflow"
+                            columnName="import_key" newDataType="varchar(160)"/>
+            <modifyDataType tableName="transaction" schemaName="cashflow"
+                            columnName="counter_import_key" newDataType="varchar(160)"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

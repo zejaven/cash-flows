@@ -404,11 +404,11 @@ export function ImportPage() {
               )}
             </div>
             <div className="form-row">
-              <label htmlFor="import-file">Statement PDF</label>
+              <label htmlFor="import-file">Statement file (PDF, CSV or ZIP)</label>
               <input
                 id="import-file"
                 type="file"
-                accept="application/pdf"
+                accept=".pdf,.csv,.zip"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               />
             </div>
@@ -687,11 +687,11 @@ function GenerateParserPanel({
         </select>
       </div>
       <div className="form-row">
-        <label htmlFor="gen-file">Sample statement PDFs</label>
+        <label htmlFor="gen-file">Sample statements (PDF, CSV or ZIP)</label>
         <input
           id="gen-file"
           type="file"
-          accept="application/pdf"
+          accept=".pdf,.csv,.zip"
           multiple
           onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
         />
@@ -718,7 +718,7 @@ function GenerateParserPanel({
           {scriptValid ? (
             <>
               creates <span className="mono">parsers/{scriptName}.py</span> · parser id{' '}
-              <span className="mono">{scriptName}-pdf</span>
+              <span className="mono">{scriptName}</span>
             </>
           ) : (
             'lowercase letters, digits, "-" or "_"'

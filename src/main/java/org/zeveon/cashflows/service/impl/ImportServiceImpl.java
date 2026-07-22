@@ -18,8 +18,9 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Two-phase import facade: preview parses the PDF via the bank-bound parser and
- * parks the result in memory; confirm executes the user's mapping decisions.
+ * Two-phase import facade: preview parses the statement file via the bank-bound
+ * parser and parks the result in memory; confirm executes the user's mapping
+ * decisions. The file format (PDF, CSV, zip …) is the parser's business.
  *
  * @author Stanislav Vafin
  */
@@ -43,7 +44,10 @@ public class ImportServiceImpl implements ImportService {
 
         Path temp = null;
         try {
-            temp = Files.createTempFile("statement-", ".pdf");
+            // keep the original extension — parsers may sniff the format by suffix
+            var name = file.getOriginalFilename();
+            var dot = name == null ? -1 : name.lastIndexOf('.');
+            temp = Files.createTempFile("statement-", dot >= 0 ? name.substring(dot) : ".dat");
             file.transferTo(temp);
             var statement = parserService.parse(bank.getParserId(), temp);
 

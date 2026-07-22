@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- Parser ids are now the bare script stem (alatau, bnz) instead of <stem>-pdf:
+         the input format is the parser's business, so the suffix was a lie for CSV/zip
+         statements. Rewrites existing bank bindings to the new convention. -->
+    <changeSet id="2026-07-22-16-00-00_strip_parser_id_suffix" author="zejaven">
+        <update tableName="bank" schemaName="cashflow">
+            <column name="parser_id" valueComputed="left(parser_id, length(parser_id) - 4)"/>
+            <where>parser_id LIKE '%-pdf'</where>
+        </update>
+        <rollback>
+            <update tableName="bank" schemaName="cashflow">
+                <column name="parser_id" valueComputed="parser_id || '-pdf'"/>
+                <where>parser_id IS NOT NULL</where>
+            </update>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

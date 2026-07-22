@@ -58,6 +58,8 @@ public class ParserGeneratorServiceImpl implements ParserGeneratorService {
     private static final Duration FINISHED_TASK_TTL = Duration.ofMinutes(30);
     private static final long SSE_TIMEOUT_MILLIS = 30 * 60_000L;
     private static final int MAX_SAMPLES = 10;
+    /** The input format is the parser's business — anything a bank realistically exports. */
+    private static final List<String> SAMPLE_EXTENSIONS = List.of(".pdf", ".csv", ".zip");
 
     private final ImportGeneratorProperties properties;
     private final ImportParserProperties parserProperties;
@@ -107,15 +109,15 @@ public class ParserGeneratorServiceImpl implements ParserGeneratorService {
             if (file == null || file.isEmpty()) {
                 throw new ConflictException("Statement file is empty");
             }
-            var originalName = file.getOriginalFilename();
-            if (originalName == null || !originalName.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
-                throw new ConflictException("Statement must be a PDF file");
+            if (extensionOf(file.getOriginalFilename()) == null) {
+                throw new ConflictException("Statement must be a %s file"
+                        .formatted(String.join("/", SAMPLE_EXTENSIONS)));
             }
         }
         var scriptFile = scriptName + ".py";
         var scriptPath = repoRoot().resolve(parserProperties.scriptsDir()).resolve(scriptFile);
         if (Files.exists(scriptPath)) {
-            throw new ConflictException("Parser '%s-pdf' already exists".formatted(scriptName));
+            throw new ConflictException("Parser '%s' already exists".formatted(scriptName));
         }
         var settings = settingsService.get();
         var provider = settings.provider();
@@ -131,7 +133,8 @@ public class ParserGeneratorServiceImpl implements ParserGeneratorService {
             Files.createDirectories(workDir);
             var batch = UUID.randomUUID();
             for (var i = 0; i < files.size(); i++) {
-                var copy = workDir.resolve("statement-%s-%d.pdf".formatted(batch, i + 1));
+                var copy = workDir.resolve("statement-%s-%d%s".formatted(
+                        batch, i + 1, extensionOf(files.get(i).getOriginalFilename())));
                 files.get(i).transferTo(copy.toFile());
                 samples.add(new Sample(copy, files.get(i).getOriginalFilename()));
             }
@@ -141,13 +144,13 @@ public class ParserGeneratorServiceImpl implements ParserGeneratorService {
         }
 
         var prompt = promptBuilder.build(repoRoot().resolve(properties.promptFile()),
-                bankName, scriptFile, scriptName + "-pdf",
+                bankName, scriptFile, scriptName,
                 samples.stream().map(Sample::copy).toList(), repoRoot().resolve(properties.workDir()));
         var command = provider == AgentProvider.CLAUDE
                 ? AgentCliRunner.claudeCommand(resolved.command(), model)
                 : AgentCliRunner.codexCommand(resolved.command(), model, repoRoot());
 
-        var task = new GeneratorTask(scriptName + "-pdf", scriptFile);
+        var task = new GeneratorTask(scriptName, scriptFile);
         current.set(task);
         task.append(new AgentEvent(AgentEvent.Kind.INFO,
                 "Starting %s%s for bank \"%s\" → parsers/%s (%d sample statement%s)".formatted(
@@ -302,6 +305,15 @@ public class ParserGeneratorServiceImpl implements ParserGeneratorService {
         if (!properties.enabled()) {
             throw new ConflictException("Parser generation is disabled in this environment");
         }
+    }
+
+    /** Whitelisted extension of the uploaded file (with the dot), or null when not allowed. */
+    private static String extensionOf(String fileName) {
+        if (fileName == null) {
+            return null;
+        }
+        var lower = fileName.toLowerCase(Locale.ROOT);
+        return SAMPLE_EXTENSIONS.stream().filter(lower::endsWith).findFirst().orElse(null);
     }
 
     private static Path repoRoot() {

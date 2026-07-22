@@ -24,4 +24,6 @@
     <include file="db/changelog/2026-07-21-20-00-01_create_conversion_step.xml"/>
     <include file="db/changelog/2026-07-21-20-00-02_restep_seed_category_colors.xml"/>
     <include file="db/changelog/2026-07-22-12-00-00_create_generator_settings.xml"/>
+    <include file="db/changelog/2026-07-22-16-00-00_strip_parser_id_suffix.xml"/>
+    <include file="db/changelog/2026-07-22-18-00-00_widen_reference_columns.xml"/>
 </databaseChangeLog>

@@ -12,11 +12,12 @@ parsers, no git commands. The only files you may create or change are
 ## 1. Learn the contract
 
 Read `parsers/CONTRACT.md` — the output JSON schema, the CLI flags, the exit
-codes and the checksum self-verification are non-negotiable. Mirror the
-structure and style of the reference parsers `parsers/alatau.py` and
-`parsers/bnz.py`: argparse-based `main(argv) -> int`, pdfplumber, `--redact`
-support, a module docstring (in English) describing the layout quirks you
-discovered.
+codes and the self-verification rules are non-negotiable (including what to do
+when the export prints no totals). Mirror the structure and style of the
+reference parsers in `parsers/` (`alatau.py`, `bnz.py`, `bybit.py`):
+argparse-based `main(argv) -> int`, `--redact` support, a module docstring (in
+English) describing the layout quirks you discovered. The samples may be PDF,
+CSV or zip — pick the right tooling (pdfplumber / stdlib csv / zipfile).
 
 ## 2. Explore the sample statements
 
@@ -24,13 +25,14 @@ The sample statements are:
 
 {{pdf_paths}}
 
-Explore the structure of **every** sample — page text, tables, word
-coordinates via pdfplumber — using small throwaway snippets. Different
-statements from the same bank often differ (period length, number of pages,
-multi-currency sections, empty accounts, pending blocks): the samples exist
-precisely to expose those variants, so compare them and handle everything you
-see. Write any scratch output **only** under `{{work_dir}}`. Python and
-pdfplumber are already installed (`python` on PATH).
+Explore the structure of **every** sample — for PDFs: page text, tables, word
+coordinates via pdfplumber; for CSV/zip: archive members, header rows, value
+dictionaries — using small throwaway snippets. Different statements from the
+same bank often differ (period length, number of pages, multi-currency
+sections, empty accounts, pending blocks): the samples exist precisely to
+expose those variants, so compare them and handle everything you see. Write
+any scratch output **only** under `{{work_dir}}`. Python and pdfplumber are
+already installed (`python` on PATH).
 
 Pay attention to: how transactions are laid out (table vs positioned words),
 which summary totals the statement prints (you must verify against them), the

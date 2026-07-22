@@ -81,7 +81,7 @@ class ImportExecutorIntegrationTest {
         }
         bank = bankRepository.save(Bank.builder()
                 .name("Alatau City Bank")
-                .parserId("alatau-pdf")
+                .parserId("alatau")
                 .build());
     }
 

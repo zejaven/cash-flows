@@ -31,7 +31,7 @@ class StatementParserServiceImplTest {
     }
 
     @Test
-    @DisplayName("availableParsers lists slug-named .py scripts as <stem>-pdf, sorted")
+    @DisplayName("availableParsers lists slug-named .py scripts by stem, sorted")
     void availableParsers() throws IOException {
         Files.createFile(scriptsDir.resolve("bnz.py"));
         Files.createFile(scriptsDir.resolve("alatau.py"));
@@ -41,9 +41,9 @@ class StatementParserServiceImplTest {
         Files.createFile(scriptsDir.resolve("_private.py"));
 
         assertThat(service().availableParsers()).containsExactly(
-                new ParserInfo("alatau-pdf", "alatau.py"),
-                new ParserInfo("bnz-pdf", "bnz.py"),
-                new ParserInfo("my_bank-2-pdf", "my_bank-2.py"));
+                new ParserInfo("alatau", "alatau.py"),
+                new ParserInfo("bnz", "bnz.py"),
+                new ParserInfo("my_bank-2", "my_bank-2.py"));
     }
 
     @Test
@@ -62,9 +62,9 @@ class StatementParserServiceImplTest {
         var pdf = Path.of("whatever.pdf");
 
         for (var id : new String[]{
-                null, "", "alatau", "alatau-pdf ", "Alatau-pdf", "ALATAU-PDF",
-                "../evil-pdf", "..-pdf", "a/b-pdf", "a\\b-pdf", "alatau.py-pdf",
-                "missing-pdf"}) {
+                null, "", "alatau ", "Alatau", "ALATAU",
+                "../evil", "..", "a/b", "a\\b", "alatau.py",
+                "missing", "alatau-pdf"}) {
             assertThatThrownBy(() -> service.parse(id, pdf))
                     .as("id: %s", id)
                     .isInstanceOf(ConflictException.class)

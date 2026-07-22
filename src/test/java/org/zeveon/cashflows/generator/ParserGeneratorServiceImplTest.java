@@ -91,7 +91,7 @@ class ParserGeneratorServiceImplTest {
         var txt = new MockMultipartFile("files", "statement.txt", "text/plain", new byte[]{1});
         assertThatThrownBy(() -> service.start(List.of(pdf, txt), "T-Bank", "tbank"))
                 .isInstanceOf(ConflictException.class)
-                .hasMessageContaining("PDF");
+                .hasMessageContaining(".pdf/.csv/.zip");
     }
 
     @Test

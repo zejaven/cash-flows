@@ -31,7 +31,7 @@ class StatementParserServiceLiveTest {
         var pdf = Path.of("docs", "Alatau City Bank", "Bank statement-2026-07-20 185719.pdf");
         assertThat(Files.exists(pdf)).isTrue();
 
-        var dto = service.parse("alatau-pdf", pdf);
+        var dto = service.parse("alatau", pdf);
 
         assertThat(dto.accounts()).hasSize(4);
         assertThat(dto.accounts().stream().mapToInt(a -> a.transactions().size()).sum())
@@ -44,7 +44,7 @@ class StatementParserServiceLiveTest {
         var pdf = Path.of("docs", "BNZ", "YouMoney_2026-03-12_1.pdf");
         assertThat(Files.exists(pdf)).isTrue();
 
-        var dto = service.parse("bnz-pdf", pdf);
+        var dto = service.parse("bnz", pdf);
 
         assertThat(dto.bank().name()).isEqualTo("BNZ");
         assertThat(dto.accounts()).hasSize(1);
@@ -55,6 +55,24 @@ class StatementParserServiceLiveTest {
         // synthesized references keep same-day equal amounts dedup-distinct
         assertThat(account.transactions().stream().map(row -> row.reference()).distinct())
                 .hasSize(7);
+    }
+
+    @Test
+    @DisplayName("parses a ByBit asset-history export (zip of CSVs) via subprocess")
+    void parseBybitExport() {
+        var zip = Path.of("docs", "ByBit", "assetHistory_869355_20260121_20260721.zip");
+        assertThat(Files.exists(zip)).isTrue();
+
+        var dto = service.parse("bybit", zip);
+
+        assertThat(dto.bank().name()).isEqualTo("ByBit");
+        var account = dto.accounts().getFirst();
+        assertThat(account.currency()).isEqualTo("USD");
+        // 39 payments + 36 fee rows + 1 deposit + 1 withdraw
+        assertThat(account.transactions()).hasSize(77);
+        assertThat(account.transactions().stream().map(row -> row.reference()).distinct())
+                .hasSize(77);
+        assertThat(account.summary().balanceStart()).isNull();
     }
 
     @Test
