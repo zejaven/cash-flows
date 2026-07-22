@@ -16,6 +16,7 @@ import org.zeveon.cashflows.exception.NotFoundException;
 import org.zeveon.cashflows.mapper.TransactionMapper;
 import org.zeveon.cashflows.model.TransactionFilter;
 import org.zeveon.cashflows.model.dto.BulkCategoryRequest;
+import org.zeveon.cashflows.model.dto.ConvertToTransferRequest;
 import org.zeveon.cashflows.model.dto.PageDto;
 import org.zeveon.cashflows.model.dto.TransactionDto;
 import org.zeveon.cashflows.model.dto.TransactionRequest;
@@ -62,6 +63,74 @@ public class TransactionServiceImpl implements TransactionService {
                 .orElseThrow(() -> NotFoundException.of("Transaction", id));
         apply(transaction, request);
         return TransactionMapper.INSTANCE.toDto(transaction);
+    }
+
+    /**
+     * A statement row's import key names one side of the money movement: the
+     * spending side goes to {@code importKey}, the receiving side to
+     * {@code counterImportKey}. Keeping both keys (the edited row's and the
+     * absorbed counterpart's) is what keeps overlapping re-imports idempotent.
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public TransactionDto convertToTransfer(Long id, ConvertToTransferRequest request) {
+        var transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> NotFoundException.of("Transaction", id));
+        if (transaction.getType() == TransactionType.TRANSFER) {
+            throw new ConflictException("Transaction is already a transfer");
+        }
+        if (request.counterAccountId().equals(request.accountId())) {
+            throw new IllegalArgumentException("Transfer must go to a different account");
+        }
+        var sendingKey = transaction.getType() == TransactionType.EXPENSE ? transaction.getImportKey() : null;
+        var receivingKey = transaction.getType() == TransactionType.INCOME ? transaction.getImportKey() : null;
+        if (request.counterTransactionId() != null) {
+            var counterpart = absorbCounterpart(transaction, request);
+            if (counterpart.getType() == TransactionType.EXPENSE) {
+                sendingKey = counterpart.getImportKey();
+            } else {
+                receivingKey = counterpart.getImportKey();
+            }
+        }
+        transaction.setType(TransactionType.TRANSFER);
+        transaction.setTxnDate(request.date());
+        transaction.setAccount(resolveAccount(request.accountId()));
+        transaction.setAmount(request.amount());
+        transaction.setCategory(null);
+        transaction.setDescription(request.description());
+        transaction.setOriginalCurrency(null);
+        transaction.setOriginalAmount(null);
+        transaction.setCounterAccount(resolveAccount(request.counterAccountId()));
+        transaction.setCounterAmount(request.counterAmount());
+        transaction.setImportKey(sendingKey);
+        transaction.setCounterImportKey(receivingKey);
+        return TransactionMapper.INSTANCE.toDto(transaction);
+    }
+
+    private Transaction absorbCounterpart(Transaction transaction, ConvertToTransferRequest request) {
+        var counterpart = transactionRepository.findById(request.counterTransactionId())
+                .orElseThrow(() -> NotFoundException.of("Transaction", request.counterTransactionId()));
+        if (counterpart.getId().equals(transaction.getId())) {
+            throw new IllegalArgumentException("Counterpart must be a different transaction");
+        }
+        if (counterpart.getType() == TransactionType.TRANSFER
+                || counterpart.getType() == transaction.getType()) {
+            throw new ConflictException("Counterpart must be the opposite side: %s expects %s"
+                    .formatted(transaction.getType(),
+                            transaction.getType() == TransactionType.EXPENSE
+                                    ? TransactionType.INCOME : TransactionType.EXPENSE));
+        }
+        var expectedAccountId = counterpart.getType() == TransactionType.EXPENSE
+                ? request.accountId() : request.counterAccountId();
+        if (!counterpart.getAccount().getId().equals(expectedAccountId)) {
+            throw new ConflictException("Counterpart transaction is on the wrong account");
+        }
+        transactionRepository.delete(counterpart);
+        // Hibernate flushes updates before deletes; force the delete out now, or the
+        // converted row inherits the counterpart's (account_id, import_key) while the
+        // counterpart still exists and trips uq_transaction_import_key.
+        transactionRepository.flush();
+        return counterpart;
     }
 
     @Override

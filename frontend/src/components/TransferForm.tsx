@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   apiErrorMessage,
+  convertToTransfer,
   createTransaction,
   deleteTransaction,
   getAccounts,
   getCategories,
+  getTransactions,
   updateTransaction,
 } from '../api';
 import { useSettings } from '../context/SettingsContext';
@@ -12,13 +14,24 @@ import { useToast } from '../context/ToastContext';
 import { Modal } from './Modal';
 import { Spinner } from './Spinner';
 import { today } from '../utils/dates';
-import { convert } from '../utils/money';
+import { convert, formatMoney } from '../utils/money';
 import type { Account, Transaction } from '../types';
+
+/** iso date ± days, staying in UTC so the day never shifts. */
+function shiftDate(iso: string, days: number): string {
+  const date = new Date(iso);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
 
 /**
  * Transfer between own accounts (FR-2.2, mockup 5a): both amounts entered, the
  * effective rate is derived and compared with the market cross rate. An optional
  * fee is recorded as a separate expense with the "fees" category (design decision 9).
+ *
+ * Also converts a mis-parsed EXPENSE/INCOME into a transfer when {@code existing}
+ * is not a TRANSFER: the row keeps its identity, and the already-imported opposite
+ * side can be picked and absorbed so both import keys survive (FR-4.5).
  */
 export function TransferModal({
   existing,
@@ -32,21 +45,40 @@ export function TransferModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const converting = existing != null && existing.type !== 'TRANSFER';
+  // A converted INCOME is the receiving side: its account/amount prefill "to".
+  const existingIsIncoming = existing?.type === 'INCOME';
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [feesCategoryId, setFeesCategoryId] = useState<number | null>(null);
   const [date, setDate] = useState(existing?.date ?? today());
-  const [fromId, setFromId] = useState<number | null>(existing?.accountId ?? null);
-  const [toId, setToId] = useState<number | null>(existing?.counterAccountId ?? null);
+  const [fromId, setFromId] = useState<number | null>(
+    existing ? (existingIsIncoming ? null : existing.accountId) : null,
+  );
+  const [toId, setToId] = useState<number | null>(
+    existing ? (existingIsIncoming ? existing.accountId : existing.counterAccountId) : null,
+  );
   const [amountSent, setAmountSent] = useState(
-    existing ? String(existing.amount) : prefill ? String(prefill.amountSent) : '',
+    existing
+      ? existingIsIncoming
+        ? ''
+        : String(existing.amount)
+      : prefill
+        ? String(prefill.amountSent)
+        : '',
   );
   const [amountReceived, setAmountReceived] = useState(
-    existing?.counterAmount != null
-      ? String(existing.counterAmount)
+    existing
+      ? existingIsIncoming
+        ? String(existing.amount)
+        : existing.counterAmount != null
+          ? String(existing.counterAmount)
+          : ''
       : prefill
         ? String(prefill.amountReceived)
         : '',
   );
+  const [candidates, setCandidates] = useState<Transaction[] | null>(null);
+  const [counterTxnId, setCounterTxnId] = useState<number | null>(null);
   const [fee, setFee] = useState('');
   const [description, setDescription] = useState(
     existing?.description ?? prefill?.description ?? '',
@@ -68,6 +100,37 @@ export function TransferModal({
 
   const from = accounts?.find((a) => a.id === fromId) ?? null;
   const to = accounts?.find((a) => a.id === toId) ?? null;
+
+  // Converting: offer the already-recorded opposite side (±7 days on the other
+  // account) to absorb, instead of leaving it behind as a duplicate.
+  const counterpartAccountId = converting ? (existingIsIncoming ? fromId : toId) : null;
+  useEffect(() => {
+    setCounterTxnId(null);
+    if (!converting || !existing || counterpartAccountId == null) {
+      setCandidates(null);
+      return;
+    }
+    getTransactions(
+      {
+        accountId: counterpartAccountId,
+        type: existingIsIncoming ? 'EXPENSE' : 'INCOME',
+        from: shiftDate(existing.date, -7),
+        to: shiftDate(existing.date, 7),
+      },
+      0,
+      50,
+    )
+      .then((page) => setCandidates(page.items))
+      .catch(() => setCandidates([]));
+  }, [converting, existing, existingIsIncoming, counterpartAccountId]);
+
+  const pickCounterpart = (id: number | null) => {
+    setCounterTxnId(id);
+    const picked = id != null ? candidates?.find((c) => c.id === id) : null;
+    if (!picked) return;
+    if (existingIsIncoming) setAmountSent(String(picked.amount));
+    else setAmountReceived(String(picked.amount));
+  };
 
   const effectiveRate = useMemo(() => {
     const sent = Number(amountSent);
@@ -100,7 +163,17 @@ export function TransferModal({
         counterAmount: Number(amountReceived),
         description: description || null,
       };
-      if (existing) await updateTransaction(existing.id, body);
+      if (converting && existing) {
+        await convertToTransfer(existing.id, {
+          date,
+          accountId: fromId,
+          amount: Number(amountSent),
+          counterAccountId: toId,
+          counterAmount: Number(amountReceived),
+          description: description || null,
+          counterTransactionId: counterTxnId,
+        });
+      } else if (existing) await updateTransaction(existing.id, body);
       else await createTransaction(body);
       if (!existing && fee && Number(fee) > 0) {
         await createTransaction({
@@ -130,7 +203,10 @@ export function TransferModal({
   }
 
   return (
-    <Modal title={existing ? 'Edit transfer' : 'New transfer'} onClose={onClose}>
+    <Modal
+      title={converting ? 'Convert to transfer' : existing ? 'Edit transfer' : 'New transfer'}
+      onClose={onClose}
+    >
       <form onSubmit={submit}>
         <div className="form-grid">
           <div className="form-row">
@@ -215,6 +291,37 @@ export function TransferModal({
                 </span>
               </>
             )}
+          </div>
+        )}
+        {converting && existing && (
+          <div className="form-row">
+            <label htmlFor="tr-counterpart">
+              Matching {existingIsIncoming ? 'expense' : 'income'} on the{' '}
+              {existingIsIncoming ? 'From' : 'To'} account · absorbed into this transfer
+            </label>
+            <select
+              id="tr-counterpart"
+              value={counterTxnId ?? ''}
+              onChange={(e) => pickCounterpart(e.target.value ? Number(e.target.value) : null)}
+              disabled={counterpartAccountId == null}
+            >
+              <option value="">
+                {counterpartAccountId == null
+                  ? 'Choose the other account first…'
+                  : 'None — the other side is not recorded'}
+              </option>
+              {(candidates ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.date} · {existingIsIncoming ? '−' : '+'}
+                  {formatMoney(c.amount, c.accountCurrency)}
+                  {c.description ? ` · ${c.description}` : ''}
+                </option>
+              ))}
+            </select>
+            <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+              Pick the duplicate row this transfer replaces — it will be deleted, and
+              re-importing the same statement won&apos;t bring it back.
+            </div>
           </div>
         )}
         <div className="form-grid">

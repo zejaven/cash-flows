@@ -69,6 +69,17 @@ export interface TransactionRequest {
   counterAmount?: number | null;
 }
 
+export interface ConvertToTransferRequest {
+  date: string;
+  accountId: number;
+  amount: number;
+  counterAccountId: number;
+  counterAmount: number;
+  description?: string | null;
+  /** Already-imported opposite side to absorb — keeps its import key for dedup. */
+  counterTransactionId?: number | null;
+}
+
 export interface Page<T> {
   items: T[];
   page: number;

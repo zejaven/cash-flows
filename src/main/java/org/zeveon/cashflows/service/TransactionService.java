@@ -2,6 +2,7 @@ package org.zeveon.cashflows.service;
 
 import org.zeveon.cashflows.model.TransactionFilter;
 import org.zeveon.cashflows.model.dto.BulkCategoryRequest;
+import org.zeveon.cashflows.model.dto.ConvertToTransferRequest;
 import org.zeveon.cashflows.model.dto.PageDto;
 import org.zeveon.cashflows.model.dto.TransactionDto;
 import org.zeveon.cashflows.model.dto.TransactionRequest;
@@ -16,6 +17,8 @@ public interface TransactionService {
     TransactionDto create(TransactionRequest request);
 
     TransactionDto update(Long id, TransactionRequest request);
+
+    TransactionDto convertToTransfer(Long id, ConvertToTransferRequest request);
 
     void delete(Long id);
 

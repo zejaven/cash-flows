@@ -207,7 +207,13 @@ export function DashboardPage() {
         +
       </button>
 
-      {modal === 'expense' && <TransactionModal onClose={() => setModal(null)} onSaved={reload} />}
+      {modal === 'expense' && (
+        <TransactionModal
+          onClose={() => setModal(null)}
+          onSaved={reload}
+          onSwitchToTransfer={() => setModal('transfer')}
+        />
+      )}
       {modal === 'transfer' && <TransferModal onClose={() => setModal(null)} onSaved={reload} />}
     </>
   );

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import org.zeveon.cashflows.entity.enums.TransactionType;
 import org.zeveon.cashflows.model.TransactionFilter;
 import org.zeveon.cashflows.model.dto.BulkCategoryRequest;
+import org.zeveon.cashflows.model.dto.ConvertToTransferRequest;
 import org.zeveon.cashflows.model.dto.DayTotalsResponse;
 import org.zeveon.cashflows.model.dto.PageDto;
 import org.zeveon.cashflows.model.dto.SummaryDto;
@@ -53,6 +54,12 @@ public class TransactionController {
     public ResponseEntity<TransactionDto> update(@PathVariable Long id,
                                                  @RequestBody @Valid TransactionRequest request) {
         return ResponseEntity.ok(transactionService.update(id, request));
+    }
+
+    @PostMapping("/{id}/convert-to-transfer")
+    public ResponseEntity<TransactionDto> convertToTransfer(
+            @PathVariable Long id, @RequestBody @Valid ConvertToTransferRequest request) {
+        return ResponseEntity.ok(transactionService.convertToTransfer(id, request));
     }
 
     @DeleteMapping("/{id}")

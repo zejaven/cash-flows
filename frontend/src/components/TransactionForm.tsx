@@ -43,12 +43,15 @@ export function TransactionModal({
   onClose,
   onSaved,
   onCategorized,
+  onSwitchToTransfer,
 }: {
   existing?: Transaction;
   onClose: () => void;
   onSaved: () => void;
   /** Fired when a save assigned a category — hook for the rule-suggestion dialog. */
   onCategorized?: (categoryId: number) => void;
+  /** Swaps this modal for the transfer form (new entry or convert-to-transfer). */
+  onSwitchToTransfer?: () => void;
 }) {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -153,6 +156,16 @@ export function TransactionModal({
           >
             Income
           </button>
+          {onSwitchToTransfer && (
+            <button
+              type="button"
+              className="btn-ghost"
+              style={{ flex: 1 }}
+              onClick={onSwitchToTransfer}
+            >
+              Transfer
+            </button>
+          )}
         </div>
         <div className="form-grid">
           <div className="form-row">

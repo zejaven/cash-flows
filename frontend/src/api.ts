@@ -11,6 +11,7 @@ import type {
   ComputedValue,
   ConversionRoute,
   ConversionStepDef,
+  ConvertToTransferRequest,
   Correction,
   DayTotalsResponse,
   FactVsForecast,
@@ -165,6 +166,8 @@ export const createTransaction = (body: TransactionRequest) =>
 export const updateTransaction = (id: number, body: TransactionRequest) =>
   request<Transaction>('PUT', `/api/transactions/${id}`, body);
 export const deleteTransaction = (id: number) => request<void>('DELETE', `/api/transactions/${id}`);
+export const convertToTransfer = (id: number, body: ConvertToTransferRequest) =>
+  request<Transaction>('POST', `/api/transactions/${id}/convert-to-transfer`, body);
 export const bulkCategory = (transactionIds: number[], categoryId: number) =>
   request<void>('POST', '/api/transactions/bulk-category', { transactionIds, categoryId });
 export const getDayTotals = (filters: TransactionFilters, currency: string) =>

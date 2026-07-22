@@ -45,7 +45,10 @@ export function TransactionsPage() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkCategoryId, setBulkCategoryId] = useState<number | ''>('');
   const [editing, setEditing] = useState<Transaction | null>(null);
+  /** Edit modal swapped to the transfer form («convert to transfer»). */
+  const [convertingToTransfer, setConvertingToTransfer] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [addingTransfer, setAddingTransfer] = useState(false);
   /** «Create rule?» suggestion after manually categorizing an imported txn (FR-4.7) */
   const [ruleSuggestion, setRuleSuggestion] = useState<{
     pattern: string;
@@ -277,8 +280,20 @@ export function TransactionsPage() {
         +
       </button>
 
-      {adding && <TransactionModal onClose={() => setAdding(false)} onSaved={reload} />}
-      {editing && editing.type !== 'TRANSFER' && (
+      {adding && (
+        <TransactionModal
+          onClose={() => setAdding(false)}
+          onSaved={reload}
+          onSwitchToTransfer={() => {
+            setAdding(false);
+            setAddingTransfer(true);
+          }}
+        />
+      )}
+      {addingTransfer && (
+        <TransferModal onClose={() => setAddingTransfer(false)} onSaved={reload} />
+      )}
+      {editing && editing.type !== 'TRANSFER' && !convertingToTransfer && (
         <TransactionModal
           existing={editing}
           onClose={() => setEditing(null)}
@@ -288,10 +303,18 @@ export function TransactionsPage() {
               setRuleSuggestion({ pattern: editing.description, categoryId });
             }
           }}
+          onSwitchToTransfer={() => setConvertingToTransfer(true)}
         />
       )}
-      {editing && editing.type === 'TRANSFER' && (
-        <TransferModal existing={editing} onClose={() => setEditing(null)} onSaved={reload} />
+      {editing && (editing.type === 'TRANSFER' || convertingToTransfer) && (
+        <TransferModal
+          existing={editing}
+          onClose={() => {
+            setEditing(null);
+            setConvertingToTransfer(false);
+          }}
+          onSaved={reload}
+        />
       )}
       {ruleSuggestion && (
         <RuleModal
