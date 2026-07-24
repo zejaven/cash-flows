@@ -15,8 +15,8 @@ import java.math.BigDecimal;
  * would lose ~0.3% if forced into a multiplier within numeric(19,6):
  * {@code rateInverted=false} → rate = TO units per 1 FROM;
  * {@code rateInverted=true}  → rate = FROM units per 1 TO.
- * {@code feeFixed} is in the step's TO currency; {@code feePct} applies to the
- * gross converted amount.
+ * {@code feeFixed} is in the step's TO currency; {@code feePct} is the provider's
+ * commission as a percentage of the delivered (TO) amount.
  *
  * @author Stanislav Vafin
  */

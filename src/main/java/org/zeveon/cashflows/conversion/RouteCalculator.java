@@ -12,14 +12,15 @@ import java.util.List;
  * Pure conversion-chain math (FR-5.3). Per step with multiplier
  * {@code m = rateInverted ? 1/rate : rate} (TO per 1 FROM, DECIMAL64):
  * <pre>
- *   forward: out = in · m · (1 − pct/100) − feeFixed
- *   reverse: in  = (out + feeFixed) / (m · (1 − pct/100))
+ *   forward: out = (in · m − feeFixed) / (1 + pct/100)
+ *   reverse: in  = (out · (1 + pct/100) + feeFixed) / m
  * </pre>
- * The reverse is the exact algebraic inverse of the forward — unlike the source
- * spreadsheet (docs/currency-conversion-chains.md), whose reverse formula applies
- * the percent fee to the source side and only matches at pct = 0. The exact
- * inverse guarantees {@code forward(reverse(x)) == x}, which is what the
- * spreadsheet's mirrored blocks were trying to verify.
+ * The percent fee is charged on the delivered (TO) amount — the provider's
+ * commission is {@code pct%} of what you receive — which matches the source
+ * spreadsheet (docs/currency-conversion-chains.md) exactly. {@code feeFixed} is
+ * a flat charge in the TO currency, taken before the percent. Reverse is still
+ * the exact algebraic inverse of forward, so {@code forward(reverse(x)) == x}
+ * holds (what the spreadsheet's mirrored blocks were verifying).
  *
  * @author Stanislav Vafin
  */
@@ -80,13 +81,14 @@ public final class RouteCalculator {
 
     private static BigDecimal applyForward(ConversionStep step, BigDecimal in) {
         return in.multiply(multiplier(step), MC)
-                .multiply(pctKeep(step), MC)
-                .subtract(step.getFeeFixed());
+                .subtract(step.getFeeFixed())
+                .divide(pctAdd(step), MC);
     }
 
     private static BigDecimal applyReverse(ConversionStep step, BigDecimal out) {
-        return out.add(step.getFeeFixed())
-                .divide(multiplier(step).multiply(pctKeep(step), MC), MC);
+        return out.multiply(pctAdd(step), MC)
+                .add(step.getFeeFixed())
+                .divide(multiplier(step), MC);
     }
 
     /** TO units per 1 FROM. */
@@ -96,8 +98,8 @@ public final class RouteCalculator {
                 : step.getRate();
     }
 
-    private static BigDecimal pctKeep(ConversionStep step) {
-        return BigDecimal.ONE.subtract(step.getFeePct().divide(HUNDRED, MC));
+    private static BigDecimal pctAdd(ConversionStep step) {
+        return BigDecimal.ONE.add(step.getFeePct().divide(HUNDRED, MC));
     }
 
     private static Result build(List<StepResult> steps, BigDecimal amountIn, BigDecimal amountOut) {

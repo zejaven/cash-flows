@@ -66,6 +66,17 @@ class RouteCalculatorTest {
     }
 
     @Test
+    @DisplayName("Berezka: to receive 60000 RUB at 6.5 KZT/RUB with 0.5% fee = 391950 KZT (matches xlsx)")
+    void reverseKztForRubWithPercentFee() {
+        // rate quoted as 6.5 KZT per 1 RUB -> inverted; fee 0.5% of the delivered RUB.
+        // xlsx: 60000/6.5 units = 390000 KZT + 0.5% = 391950 KZT.
+        var steps = List.of(step("KZT", "RUB", "6.5", true, "0", "0.5"));
+        var result = RouteCalculator.reverse(steps, new BigDecimal("60000"));
+        assertThat(result.amountIn()).isEqualByComparingTo("391950.00");
+        assertThat(result.amountOut()).isEqualByComparingTo("60000.00");
+    }
+
+    @Test
     @DisplayName("inverted rate equals its explicit multiplier")
     void invertedRateEquivalence() {
         var inverted = List.of(step("KZT", "USDT", "478.20", true, "0", "0"));
@@ -79,13 +90,13 @@ class RouteCalculatorTest {
     }
 
     @Test
-    @DisplayName("percent applies to gross, then the fixed fee is subtracted")
+    @DisplayName("fixed fee is subtracted from gross, then the percent is charged on the delivered amount")
     void feeOrder() {
         var steps = List.of(step("USD", "NZD", "2", false, "1", "10"));
-        // 100 USD -> gross 200 NZD -> −10% = 180 -> −1 = 179
+        // 100 USD -> gross 200 NZD -> −1 fixed = 199 -> /(1 + 10%) = 180.909…
         var result = RouteCalculator.forward(steps, new BigDecimal("100"));
-        assertThat(result.amountOut()).isEqualByComparingTo("179.00");
-        assertThat(result.effectiveRate()).isEqualByComparingTo("0.558659");
+        assertThat(result.amountOut()).isEqualByComparingTo("180.91");
+        assertThat(result.effectiveRate()).isEqualByComparingTo("0.552764");
     }
 
     @Test
