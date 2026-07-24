@@ -12,6 +12,7 @@ import org.zeveon.cashflows.entity.RecurringRule;
 import org.zeveon.cashflows.entity.Transaction;
 import org.zeveon.cashflows.entity.enums.AmountStrategy;
 import org.zeveon.cashflows.entity.enums.CategoryType;
+import org.zeveon.cashflows.entity.enums.ScheduleFrequency;
 import org.zeveon.cashflows.entity.enums.TransactionType;
 import org.zeveon.cashflows.repository.TransactionRepository;
 import org.zeveon.cashflows.service.FxService;
@@ -34,6 +35,7 @@ import static org.mockito.Mockito.when;
 class RecurringAmountCalculatorTest {
 
     private static final Map<String, Double> RATES = Map.of("USD", 1.0, "THB", 32.5);
+    private static final LocalDate TODAY = LocalDate.of(2026, 7, 24);
 
     @Mock
     private TransactionRepository transactionRepository;
@@ -73,7 +75,7 @@ class RecurringAmountCalculatorTest {
                 .amountStrategy(AmountStrategy.FIXED)
                 .amount(new BigDecimal("7500"))
                 .build();
-        var result = calculator.currentAmount(rule);
+        var result = calculator.currentAmount(rule, TODAY);
         assertThat(result.value()).isEqualByComparingTo("7500");
         assertThat(result.approx()).isFalse();
     }
@@ -87,7 +89,7 @@ class RecurringAmountCalculatorTest {
                         payment(thbAccount, "2502.78", LocalDate.of(2025, 8, 9)),
                         payment(thbAccount, "2176.58", LocalDate.of(2025, 7, 10)),
                         payment(thbAccount, "1302.80", LocalDate.of(2025, 6, 10))));
-        var result = calculator.currentAmount(averageRule());
+        var result = calculator.currentAmount(averageRule(), TODAY);
         // (2502.78 + 2176.58 + 1302.80) / 3 = 1994.05(3)
         assertThat(result.value()).isEqualByComparingTo("1994.05");
         assertThat(result.approx()).isFalse();
@@ -104,7 +106,7 @@ class RecurringAmountCalculatorTest {
         when(fxService.ratesForDate(LocalDate.of(2026, 6, 1))).thenReturn(Optional.of(RATES));
         when(fxService.convert(new BigDecimal("62"), "USD", "THB", RATES))
                 .thenReturn(Optional.of(new BigDecimal("2015")));
-        var result = calculator.currentAmount(averageRule());
+        var result = calculator.currentAmount(averageRule(), TODAY);
         assertThat(result.value()).isEqualByComparingTo("2007.50");
         assertThat(result.approx()).isTrue();
     }
@@ -115,7 +117,54 @@ class RecurringAmountCalculatorTest {
         when(transactionRepository.findByTypeAndCategoryIdOrderByTxnDateDescIdDesc(
                 eq(TransactionType.EXPENSE), eq(8L), any()))
                 .thenReturn(List.of());
-        var result = calculator.currentAmount(averageRule());
+        var result = calculator.currentAmount(averageRule(), TODAY);
+        assertThat(result.value()).isNull();
+    }
+
+    private RecurringRule periodRule(int intervalDays, int periodDays) {
+        return RecurringRule.builder()
+                .type(TransactionType.EXPENSE)
+                .account(thbAccount)
+                .category(electricity)
+                .scheduleFreq(ScheduleFrequency.EVERY_N_DAYS)
+                .intervalDays(intervalDays)
+                .amountStrategy(AmountStrategy.AVERAGE_PERIOD)
+                .avgLookback(periodDays)
+                .build();
+    }
+
+    @Test
+    @DisplayName("AVERAGE_PERIOD spreads window spend over every day; daily schedule = sum / periodDays")
+    void periodDaily() {
+        when(transactionRepository.findByTypeAndCategoryIdAndTxnDateBetween(
+                eq(TransactionType.EXPENSE), eq(8L), eq(TODAY.minusDays(29)), eq(TODAY)))
+                .thenReturn(List.of(  // 20 sparse trips in 30 days summing to 3000 THB
+                        payment(thbAccount, "1800", LocalDate.of(2026, 7, 20)),
+                        payment(thbAccount, "1200", LocalDate.of(2026, 7, 5))));
+        var result = calculator.currentAmount(periodRule(1, 30), TODAY);
+        // 3000 / 30 days = 100/day, * 1-day interval = 100
+        assertThat(result.value()).isEqualByComparingTo("100.00");
+        assertThat(result.approx()).isFalse();
+    }
+
+    @Test
+    @DisplayName("AVERAGE_PERIOD scales the daily rate by the schedule interval")
+    void periodScaledByInterval() {
+        when(transactionRepository.findByTypeAndCategoryIdAndTxnDateBetween(
+                eq(TransactionType.EXPENSE), eq(8L), eq(TODAY.minusDays(29)), eq(TODAY)))
+                .thenReturn(List.of(payment(thbAccount, "3000", LocalDate.of(2026, 7, 20))));
+        var result = calculator.currentAmount(periodRule(7, 30), TODAY);
+        // 3000 / 30 = 100/day, * 7-day interval = 700
+        assertThat(result.value()).isEqualByComparingTo("700.00");
+    }
+
+    @Test
+    @DisplayName("AVERAGE_PERIOD with no spend in the window -> unknown amount")
+    void periodNoHistory() {
+        when(transactionRepository.findByTypeAndCategoryIdAndTxnDateBetween(
+                eq(TransactionType.EXPENSE), eq(8L), eq(TODAY.minusDays(29)), eq(TODAY)))
+                .thenReturn(List.of());
+        var result = calculator.currentAmount(periodRule(1, 30), TODAY);
         assertThat(result.value()).isNull();
     }
 }

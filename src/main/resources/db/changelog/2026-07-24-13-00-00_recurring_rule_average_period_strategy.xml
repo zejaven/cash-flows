@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-24-13-00-00_recurring_rule_average_period_strategy" author="zejaven">
+        <sql>ALTER TABLE cashflow.recurring_rule DROP CONSTRAINT chk_recurring_rule_strategy</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_strategy
+            CHECK (amount_strategy IN ('FIXED', 'AVERAGE', 'AVERAGE_PERIOD'))</sql>
+        <rollback>
+            <sql>ALTER TABLE cashflow.recurring_rule DROP CONSTRAINT chk_recurring_rule_strategy</sql>
+            <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_strategy
+                CHECK (amount_strategy IN ('FIXED', 'AVERAGE'))</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

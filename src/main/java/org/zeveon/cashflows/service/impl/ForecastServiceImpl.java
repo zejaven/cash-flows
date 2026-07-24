@@ -156,7 +156,7 @@ public class ForecastServiceImpl implements ForecastService {
                 .collect(Collectors.groupingBy(occurrence -> occurrence.getRule().getId(),
                         Collectors.mapping(RecurringOccurrence::getDueDate, Collectors.toSet())));
         for (var rule : rules) {
-            var current = amountCalculator.currentAmount(rule);
+            var current = amountCalculator.currentAmount(rule, today);
             if (current.value() == null) {
                 continue;  // no basis to forecast; the queue asks for a manual amount
             }

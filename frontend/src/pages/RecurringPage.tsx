@@ -204,6 +204,9 @@ export function RecurringPage() {
                   {rule.amountStrategy === 'AVERAGE' && (
                     <span className="badge badge-review">avg {rule.avgLookback}</span>
                   )}
+                  {rule.amountStrategy === 'AVERAGE_PERIOD' && (
+                    <span className="badge badge-review">avg/{rule.avgLookback}d</span>
+                  )}
                   {rule.forecastOnly && (
                     <span className="badge badge-imported">forecast only</span>
                   )}
@@ -498,7 +501,7 @@ function RuleForm({
         amountStrategy: type === 'TRANSFER' ? 'FIXED' : strategy,
         amount: strategy === 'FIXED' || type === 'TRANSFER' ? Number(amount) : null,
         counterAmount: type === 'TRANSFER' && counterAmount ? Number(counterAmount) : null,
-        avgLookback: strategy === 'AVERAGE' ? Number(avgLookback) : null,
+        avgLookback: strategy !== 'FIXED' ? Number(avgLookback) : null,
         archived: existing?.archived ?? false,
         forecastOnly,
       };
@@ -692,9 +695,23 @@ function RuleForm({
               type="button"
               className={strategy === 'AVERAGE' ? 'btn' : 'btn-ghost'}
               style={{ flex: 1 }}
-              onClick={() => setStrategy('AVERAGE')}
+              onClick={() => {
+                setStrategy('AVERAGE');
+                if (avgLookback === '30') setAvgLookback('3');
+              }}
             >
-              Avg of last payments
+              Avg of last N
+            </button>
+            <button
+              type="button"
+              className={strategy === 'AVERAGE_PERIOD' ? 'btn' : 'btn-ghost'}
+              style={{ flex: 1 }}
+              onClick={() => {
+                setStrategy('AVERAGE_PERIOD');
+                if (avgLookback === '3') setAvgLookback('30');
+              }}
+            >
+              Avg over period
             </button>
           </div>
         )}
@@ -728,9 +745,11 @@ function RuleForm({
               />
             </div>
           )}
-          {strategy === 'AVERAGE' && type !== 'TRANSFER' && (
+          {strategy !== 'FIXED' && type !== 'TRANSFER' && (
             <div className="form-row">
-              <label htmlFor="rr-lookback">Average of last N payments</label>
+              <label htmlFor="rr-lookback">
+                {strategy === 'AVERAGE' ? 'Average of last N payments' : 'Period length (days)'}
+              </label>
               <input
                 id="rr-lookback"
                 type="number"
@@ -739,6 +758,12 @@ function RuleForm({
                 onChange={(e) => setAvgLookback(e.target.value)}
                 required
               />
+              {strategy === 'AVERAGE_PERIOD' && (
+                <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+                  Total spend over the last {avgLookback || 'N'} days, spread evenly across every
+                  day, then scaled to the schedule interval.
+                </div>
+              )}
             </div>
           )}
         </div>

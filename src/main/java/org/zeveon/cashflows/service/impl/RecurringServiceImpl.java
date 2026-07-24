@@ -93,7 +93,7 @@ public class RecurringServiceImpl implements RecurringService {
                         Collectors.mapping(RecurringOccurrence::getDueDate, Collectors.toSet())));
         for (var rule : rules) {
             var actedOn = actedOnByRule.getOrDefault(rule.getId(), java.util.Set.of());
-            var current = amountCalculator.currentAmount(rule);
+            var current = amountCalculator.currentAmount(rule, today);
             for (var dueDate : ScheduleCalculator.pendingBetween(rule, actedOn, rule.getStartDate(), today)) {
                 items.add(new QueueItemDto(QueueKind.RECURRING, rule.getId(), null,
                         rule.getName(), dueDate, rule.getType(),
@@ -157,7 +157,7 @@ public class RecurringServiceImpl implements RecurringService {
                 });
 
         var amount = request.amount() != null ? request.amount()
-                : amountCalculator.currentAmount(rule).value();
+                : amountCalculator.currentAmount(rule, request.dueDate()).value();
         if (amount == null) {
             throw new IllegalArgumentException(
                     "No amount: the rule has no payment history yet — enter it explicitly");
@@ -249,7 +249,7 @@ public class RecurringServiceImpl implements RecurringService {
             if (request.categoryId() != null) {
                 throw new IllegalArgumentException("Transfer rule cannot have a category");
             }
-            if (request.amountStrategy() == AmountStrategy.AVERAGE) {
+            if (request.amountStrategy() != AmountStrategy.FIXED) {
                 throw new IllegalArgumentException(
                         "Transfer rules are FIXED-only (no category to average over)");
             }
@@ -273,6 +273,10 @@ public class RecurringServiceImpl implements RecurringService {
         }
         if (request.amountStrategy() == AmountStrategy.FIXED && request.amount() == null) {
             throw new IllegalArgumentException("FIXED strategy needs an amount");
+        }
+        if (request.amountStrategy() != AmountStrategy.FIXED
+                && request.avgLookback() != null && request.avgLookback() < 1) {
+            throw new IllegalArgumentException("Averaging lookback must be >= 1");
         }
         if (request.endDate() != null && request.endDate().isBefore(request.startDate())) {
             throw new IllegalArgumentException("endDate is before startDate");
@@ -304,8 +308,11 @@ public class RecurringServiceImpl implements RecurringService {
         rule.setAmountStrategy(request.amountStrategy());
         rule.setAmount(request.amountStrategy() == AmountStrategy.FIXED ? request.amount() : null);
         rule.setCounterAmount(request.type() == TransactionType.TRANSFER ? request.counterAmount() : null);
-        rule.setAvgLookback(request.amountStrategy() == AmountStrategy.AVERAGE
-                ? (request.avgLookback() == null ? 3 : request.avgLookback()) : null);
+        rule.setAvgLookback(switch (request.amountStrategy()) {
+            case FIXED -> null;
+            case AVERAGE -> request.avgLookback() == null ? 3 : request.avgLookback();
+            case AVERAGE_PERIOD -> request.avgLookback() == null ? 30 : request.avgLookback();
+        });
         if (request.archived() != null) {
             rule.setArchived(request.archived());
         }
@@ -355,7 +362,7 @@ public class RecurringServiceImpl implements RecurringService {
     }
 
     private RecurringRuleDto toDto(RecurringRule rule, LocalDate today) {
-        var current = amountCalculator.currentAmount(rule);
+        var current = amountCalculator.currentAmount(rule, today);
         var nextDue = rule.isArchived() ? null
                 : ScheduleCalculator.datesBetween(rule, today, today.plusYears(2)).stream()
                 .findFirst()
