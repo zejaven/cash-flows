@@ -138,20 +138,35 @@ public class ConversionRouteServiceImpl implements ConversionRouteService {
         if (request.archived() != null) {
             route.setArchived(request.archived());
         }
-        route.getSteps().clear();
-        var position = 1;
-        for (var stepRequest : request.steps()) {
-            route.getSteps().add(ConversionStep.builder()
-                    .route(route)
-                    .position(position++)
-                    .fromCurrency(stepRequest.fromCurrency().toUpperCase())
-                    .toCurrency(stepRequest.toCurrency().toUpperCase())
-                    .rate(stepRequest.rate())
-                    .rateInverted(stepRequest.rateInverted())
-                    .feeFixed(stepRequest.feeFixed() == null ? BigDecimal.ZERO : stepRequest.feeFixed())
-                    .feePct(stepRequest.feePct() == null ? BigDecimal.ZERO : stepRequest.feePct())
-                    .build());
+        // Reuse existing step rows in place rather than clear-and-re-add: the
+        // conversion_step (route_id, position) unique constraint would otherwise
+        // be transiently violated, because Hibernate flushes the inserts of the
+        // new positions 1..n before the orphan-removal deletes of the old ones.
+        var steps = route.getSteps();
+        var requests = request.steps();
+        for (var index = 0; index < requests.size(); index++) {
+            var stepRequest = requests.get(index);
+            var step = index < steps.size() ? steps.get(index) : newStep(route, steps);
+            step.setPosition(index + 1);
+            step.setFromCurrency(stepRequest.fromCurrency().toUpperCase());
+            step.setToCurrency(stepRequest.toCurrency().toUpperCase());
+            step.setRate(stepRequest.rate());
+            step.setRateInverted(stepRequest.rateInverted());
+            step.setFeeFixed(stepRequest.feeFixed() == null ? BigDecimal.ZERO : stepRequest.feeFixed());
+            step.setFeePct(stepRequest.feePct() == null ? BigDecimal.ZERO : stepRequest.feePct());
         }
+        // Drop any trailing steps the request no longer contains (highest
+        // positions first, so the deletes never collide with a kept row).
+        while (steps.size() > requests.size()) {
+            steps.remove(steps.size() - 1);
+        }
+    }
+
+    private static ConversionStep newStep(ConversionRoute route, List<ConversionStep> steps) {
+        var step = new ConversionStep();
+        step.setRoute(route);
+        steps.add(step);
+        return step;
     }
 
     private static RouteDto toDto(ConversionRoute route) {
