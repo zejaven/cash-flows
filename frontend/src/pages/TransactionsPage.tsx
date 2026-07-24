@@ -34,6 +34,38 @@ import type {
 
 const PAGE_SIZE = 50;
 
+/** Read persisted filters back from the URL query string (survives page refresh). */
+function filtersFromParams(params: URLSearchParams): TransactionFilters {
+  const filters: TransactionFilters = {};
+  const from = params.get('from');
+  const to = params.get('to');
+  const accountId = params.get('accountId');
+  const categoryId = params.get('categoryId');
+  const type = params.get('type');
+  const q = params.get('q');
+  if (from) filters.from = from;
+  if (to) filters.to = to;
+  if (accountId) filters.accountId = Number(accountId);
+  if (categoryId) filters.categoryId = Number(categoryId);
+  if (type) filters.type = type as TransactionType;
+  if (q) filters.q = q;
+  if (params.get('needsReview') === 'true') filters.needsReview = true;
+  return filters;
+}
+
+/** Serialize filters into a URLSearchParams so they persist across reloads. */
+function filtersToParams(filters: TransactionFilters): URLSearchParams {
+  const params = new URLSearchParams();
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
+  if (filters.accountId != null) params.set('accountId', String(filters.accountId));
+  if (filters.categoryId != null) params.set('categoryId', String(filters.categoryId));
+  if (filters.type) params.set('type', filters.type);
+  if (filters.q) params.set('q', filters.q);
+  if (filters.needsReview) params.set('needsReview', 'true');
+  return params;
+}
+
 export function TransactionsPage() {
   const [items, setItems] = useState<Transaction[] | null>(null);
   const [page, setPage] = useState(0);
@@ -42,9 +74,9 @@ export function TransactionsPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState<TransactionFilters>(() =>
-    searchParams.get('needsReview') === 'true' ? { needsReview: true } : {},
+    filtersFromParams(searchParams),
   );
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkCategoryId, setBulkCategoryId] = useState<number | ''>('');
@@ -93,6 +125,11 @@ export function TransactionsPage() {
   }, [filters, displayCurrency, toast]);
 
   useEffect(reload, [reload]);
+
+  // Keep filters in the URL so they survive a page refresh.
+  useEffect(() => {
+    setSearchParams(filtersToParams(filters), { replace: true });
+  }, [filters, setSearchParams]);
 
   const loadMore = () => {
     getTransactions(filters, page + 1, PAGE_SIZE)
