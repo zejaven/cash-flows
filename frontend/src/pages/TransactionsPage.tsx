@@ -216,6 +216,8 @@ export function TransactionsPage() {
   const set = (patch: Partial<TransactionFilters>) =>
     setFilters((current) => ({ ...current, ...patch }));
 
+  const hasActiveFilters = Object.values(filters).some((v) => v != null && v !== '');
+
   const convHeader = displayCurrency !== 'ORIGINAL' ? `≈ ${displayCurrency}` : '';
 
   return (
@@ -272,6 +274,11 @@ export function TransactionsPage() {
           <option value="INCOME">Income</option>
           <option value="TRANSFER">Transfer</option>
         </select>
+        {hasActiveFilters && (
+          <button className="btn-ghost" onClick={() => setFilters({})}>
+            ✕ Reset
+          </button>
+        )}
       </div>
 
       {summary && (
