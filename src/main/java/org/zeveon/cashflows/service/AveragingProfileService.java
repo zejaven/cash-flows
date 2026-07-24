@@ -21,6 +21,9 @@ public interface AveragingProfileService {
 
     ProfileDto update(Long id, ProfileRequest request, LocalDate today);
 
+    /** Toggle whether the profile contributes to the forecast. */
+    ProfileDto setForecastVisible(Long id, boolean visible, LocalDate today);
+
     void delete(Long id);
 
     /** Live "Computed result" for the editor without saving (mockup 4a). */

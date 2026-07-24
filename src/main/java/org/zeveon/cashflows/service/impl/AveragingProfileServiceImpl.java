@@ -83,6 +83,15 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public ProfileDto setForecastVisible(Long id, boolean visible, LocalDate today) {
+        var profile = profileRepository.findById(id)
+                .orElseThrow(() -> NotFoundException.of("Averaging profile", id));
+        profile.setForecastVisible(visible);
+        return toDto(profile, today);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         profileRepository.delete(profileRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Averaging profile", id)));
@@ -237,7 +246,7 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
                 profile.getRollingDays(),
                 profile.getCategoryFilterMode(),
                 profile.getCategories().stream().map(Category::getId).sorted().toList(),
-                profile.getManualOverride(), profile.isArchived(),
+                profile.getManualOverride(), profile.isArchived(), profile.isForecastVisible(),
                 computed, effectiveValue(profile, computed));
     }
 

@@ -311,6 +311,8 @@ export const updateRecurringRule = (id: number, body: RecurringRuleRequest, toda
   request<RecurringRule>('PUT', `/api/recurring/${id}${query({ today })}`, body);
 export const deleteRecurringRule = (id: number) =>
   request<void>('DELETE', `/api/recurring/${id}`);
+export const setRecurringForecastVisible = (id: number, visible: boolean, today: string) =>
+  request<RecurringRule>('PATCH', `/api/recurring/${id}/forecast-visible${query({ visible, today })}`);
 export const getRecurringQueue = (today: string) =>
   request<QueueItem[]>('GET', `/api/recurring/queue${query({ today })}`);
 export const confirmRecurring = (body: {
@@ -436,6 +438,11 @@ export const updateAveragingProfile = (id: number, body: unknown, today: string)
   request<AveragingProfile>('PUT', `/api/averaging-profiles/${id}${query({ today })}`, body);
 export const deleteAveragingProfile = (id: number) =>
   request<void>('DELETE', `/api/averaging-profiles/${id}`);
+export const setProfileForecastVisible = (id: number, visible: boolean, today: string) =>
+  request<AveragingProfile>(
+    'PATCH',
+    `/api/averaging-profiles/${id}/forecast-visible${query({ visible, today })}`,
+  );
 export const previewAveragingProfile = (body: unknown, today: string) =>
   request<ComputedValue>('POST', `/api/averaging-profiles/preview${query({ today })}`, body);
 

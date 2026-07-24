@@ -102,6 +102,11 @@ public class RecurringRule {
     @Column(name = "forecast_only", nullable = false)
     private boolean forecastOnly;
 
+    /** When false the rule is excluded from the forecast projection (queue is unaffected). */
+    @Builder.Default
+    @Column(name = "forecast_visible", nullable = false)
+    private boolean forecastVisible = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

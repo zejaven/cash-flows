@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-24-15-00-01_add_averaging_profile_forecast_visible" author="zejaven">
+        <addColumn tableName="averaging_profile" schemaName="cashflow">
+            <column name="forecast_visible" type="boolean" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="averaging_profile" schemaName="cashflow" columnName="forecast_visible"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

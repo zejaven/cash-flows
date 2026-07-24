@@ -30,7 +30,7 @@ public final class AveragingProfileDtos {
             AveragingGranularity granularity,
             AveragingWindowMode windowMode, LocalDate periodFrom, LocalDate periodTo, Integer rollingDays,
             CategoryFilterMode categoryFilterMode, List<Long> categoryIds,
-            BigDecimal manualOverride, boolean archived,
+            BigDecimal manualOverride, boolean archived, boolean forecastVisible,
             ComputedValue computed, BigDecimal effectiveValue) {
     }
 

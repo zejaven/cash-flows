@@ -254,6 +254,45 @@ class ForecastServiceIntegrationTest {
     }
 
     @Test
+    @DisplayName("forecast-hidden rules and profiles contribute nothing to the forecast")
+    void hiddenContributorsExcluded() {
+        var groceries = categoryRepository.findByNameAndType("groceries", CategoryType.EXPENSE)
+                .orElseThrow();
+        for (int i = 0; i < 10; i++) {
+            transactionRepository.save(Transaction.builder()
+                    .type(TransactionType.EXPENSE).txnDate(TODAY.minusDays(i))
+                    .account(nzd).amount(new BigDecimal("30")).category(groceries)
+                    .source(TransactionSource.MANUAL).build());
+        }
+        // would drain 30 NZD/day, but hidden from the forecast
+        var profile = profileRepository.save(AveragingProfile.builder()
+                .name("Hidden groceries").account(nzd)
+                .granularity(AveragingGranularity.DAILY)
+                .windowMode(AveragingWindowMode.ROLLING).rollingDays(10)
+                .categoryFilterMode(CategoryFilterMode.INCLUDE)
+                .forecastVisible(false).archived(false).build());
+        profile.getCategories().add(groceries);
+        profileRepository.save(profile);
+        // would post 500 NZD on the 1st, but hidden from the forecast
+        ruleRepository.save(RecurringRule.builder()
+                .name("Hidden rent").type(TransactionType.EXPENSE).account(nzd)
+                .scheduleFreq(ScheduleFrequency.MONTHLY).dayOfMonth(1).startDate(TODAY)
+                .amountStrategy(AmountStrategy.FIXED).amount(new BigDecimal("500"))
+                .forecastVisible(false).archived(false).build());
+
+        var response = forecastService.forecast(TODAY, 1, "NZD", TODAY);
+        var nzdSeries = response.forecast().series().get(nzd.getId());
+        var dates = response.forecast().dates();
+
+        // no future drain from the hidden profile: balance is flat day to day
+        assertThat(nzdSeries.get(dates.indexOf(TODAY)))
+                .isEqualByComparingTo(nzdSeries.get(dates.indexOf(TODAY.plusDays(1))));
+        // the hidden rule produces no forecast event
+        assertThat(response.eventDays().stream().flatMap(day -> day.items().stream())
+                .noneMatch(item -> item.label().equals("Hidden rent"))).isTrue();
+    }
+
+    @Test
     @DisplayName("loan schedule payments and expected debt repayments enter the forecast")
     void debtEvents() {
         var counterparty = counterpartyRepository.save(Counterparty.builder().name("Bank").build());

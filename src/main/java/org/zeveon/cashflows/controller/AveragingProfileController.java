@@ -44,6 +44,13 @@ public class AveragingProfileController {
         return ResponseEntity.ok(profileService.update(id, request, today));
     }
 
+    @PatchMapping("/{id}/forecast-visible")
+    public ResponseEntity<ProfileDto> setForecastVisible(@PathVariable Long id,
+                                                         @RequestParam boolean visible,
+                                                         @RequestParam LocalDate today) {
+        return ResponseEntity.ok(profileService.setForecastVisible(id, visible, today));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         profileService.delete(id);

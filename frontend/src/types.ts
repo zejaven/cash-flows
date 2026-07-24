@@ -279,6 +279,7 @@ export interface RecurringRule {
   avgLookback: number | null;
   archived: boolean;
   forecastOnly: boolean;
+  forecastVisible: boolean;
   nextDue: string | null;
   currentAmount: number | null;
   approxAmount: boolean;
@@ -367,6 +368,7 @@ export interface AveragingProfile {
   categoryIds: number[];
   manualOverride: number | null;
   archived: boolean;
+  forecastVisible: boolean;
   computed: ComputedValue;
   effectiveValue: number | null;
 }

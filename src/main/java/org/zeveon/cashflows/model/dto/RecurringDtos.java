@@ -28,7 +28,7 @@ public final class RecurringDtos {
             ScheduleFrequency scheduleFreq, Integer dayOfMonth, Integer dayOfWeek, Integer intervalDays,
             LocalDate startDate, LocalDate endDate,
             AmountStrategy amountStrategy, BigDecimal amount, BigDecimal counterAmount,
-            Integer avgLookback, boolean archived, boolean forecastOnly,
+            Integer avgLookback, boolean archived, boolean forecastOnly, boolean forecastVisible,
             /* computed */ LocalDate nextDue, BigDecimal currentAmount, boolean approxAmount) {
     }
 

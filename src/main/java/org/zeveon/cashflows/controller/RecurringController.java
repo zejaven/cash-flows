@@ -42,6 +42,13 @@ public class RecurringController {
         return ResponseEntity.ok(recurringService.update(id, request, today));
     }
 
+    @PatchMapping("/{id}/forecast-visible")
+    public ResponseEntity<RecurringRuleDto> setForecastVisible(@PathVariable Long id,
+                                                               @RequestParam boolean visible,
+                                                               @RequestParam LocalDate today) {
+        return ResponseEntity.ok(recurringService.setForecastVisible(id, visible, today));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         recurringService.delete(id);

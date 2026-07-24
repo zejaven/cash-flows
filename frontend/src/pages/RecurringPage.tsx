@@ -14,6 +14,7 @@ import {
   getPlanned,
   getRecurringQueue,
   getRecurringRules,
+  setRecurringForecastVisible,
   skipRecurring,
   skipScheduleItem,
   updatePlanned,
@@ -115,6 +116,15 @@ export function RecurringPage() {
     }
   };
 
+  const toggleRuleVisible = async (rule: RecurringRule) => {
+    try {
+      await setRecurringForecastVisible(rule.id, !rule.forecastVisible, today());
+      reload();
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    }
+  };
+
   const removePlanned = async (item: Planned) => {
     if (!confirm('Delete planned transaction?')) return;
     try {
@@ -207,6 +217,9 @@ export function RecurringPage() {
                   {rule.forecastOnly && (
                     <span className="badge badge-imported">forecast only</span>
                   )}
+                  {!rule.forecastVisible && (
+                    <span className="badge badge-review">not in forecast</span>
+                  )}
                   {rule.archived && <span className="badge badge-review"> archived</span>}
                 </div>
                 <div className="muted" style={{ fontSize: 12.5 }}>
@@ -227,6 +240,13 @@ export function RecurringPage() {
                 )}
               </span>
               <div className="row-actions">
+                <button
+                  className="row-btn"
+                  title={rule.forecastVisible ? 'Hide from forecast' : 'Show in forecast'}
+                  onClick={() => toggleRuleVisible(rule)}
+                >
+                  {rule.forecastVisible ? '👁' : '🙈'}
+                </button>
                 <button className="row-btn" onClick={() => setRuleModal(rule)}>
                   Edit
                 </button>

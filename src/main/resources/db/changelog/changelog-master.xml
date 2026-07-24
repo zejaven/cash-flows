@@ -35,4 +35,6 @@
     <include file="db/changelog/2026-07-24-13-00-00_recurring_rule_average_period_strategy.xml"/>
     <include file="db/changelog/2026-07-24-14-00-00_add_averaging_profile_window_mode.xml"/>
     <include file="db/changelog/2026-07-24-14-00-01_revert_recurring_average_period.xml"/>
+    <include file="db/changelog/2026-07-24-15-00-00_add_recurring_rule_forecast_visible.xml"/>
+    <include file="db/changelog/2026-07-24-15-00-01_add_averaging_profile_forecast_visible.xml"/>
 </databaseChangeLog>

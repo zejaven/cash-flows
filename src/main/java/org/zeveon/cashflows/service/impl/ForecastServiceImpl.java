@@ -149,6 +149,7 @@ public class ForecastServiceImpl implements ForecastService {
         // recurring: pending occurrences; overdue ones land on today (money leaves
         // as soon as the user confirms)
         var rules = ruleRepository.findByArchivedFalseOrderByIdAsc().stream()
+                .filter(RecurringRule::isForecastVisible)
                 .filter(rule -> accountIds.contains(rule.getAccount().getId()))
                 .toList();
         var actedOnByRule = occurrenceRepository
@@ -190,7 +191,8 @@ public class ForecastServiceImpl implements ForecastService {
 
         // averaging profiles: DAILY drain from tomorrow; MONTHLY on future 1sts
         for (var profile : profileRepository.findByArchivedFalseOrderByIdAsc()) {
-            if (!accountIds.contains(profile.getAccount().getId())) {
+            if (!profile.isForecastVisible()
+                    || !accountIds.contains(profile.getAccount().getId())) {
                 continue;
             }
             var computed = averagingProfileService.computeFor(profile, today);

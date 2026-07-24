@@ -69,6 +69,15 @@ public class RecurringServiceImpl implements RecurringService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public RecurringRuleDto setForecastVisible(Long id, boolean visible, LocalDate today) {
+        var rule = ruleRepository.findById(id)
+                .orElseThrow(() -> NotFoundException.of("Recurring rule", id));
+        rule.setForecastVisible(visible);
+        return toDto(rule, today);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         var rule = ruleRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Recurring rule", id));
@@ -372,6 +381,7 @@ public class RecurringServiceImpl implements RecurringService {
                 rule.getStartDate(), rule.getEndDate(),
                 rule.getAmountStrategy(), rule.getAmount(), rule.getCounterAmount(),
                 rule.getAvgLookback(), rule.isArchived(), rule.isForecastOnly(),
+                rule.isForecastVisible(),
                 nextDue, current.value(), current.approx());
     }
 

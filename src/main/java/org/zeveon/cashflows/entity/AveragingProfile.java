@@ -86,6 +86,11 @@ public class AveragingProfile {
     @Column(name = "archived", nullable = false)
     private boolean archived;
 
+    /** When false the profile is excluded from the forecast projection. */
+    @Builder.Default
+    @Column(name = "forecast_visible", nullable = false)
+    private boolean forecastVisible = true;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

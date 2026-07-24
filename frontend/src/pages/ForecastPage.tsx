@@ -8,6 +8,7 @@ import {
   getCategories,
   getForecast,
   previewAveragingProfile,
+  setProfileForecastVisible,
   updateAveragingProfile,
 } from '../api';
 import { useSettings } from '../context/SettingsContext';
@@ -222,6 +223,15 @@ function ProfilesView() {
     }
   };
 
+  const toggleVisible = async (profile: AveragingProfile) => {
+    try {
+      await setProfileForecastVisible(profile.id, !profile.forecastVisible, today());
+      reload();
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    }
+  };
+
   return (
     <div className="card">
       <h2>
@@ -242,6 +252,9 @@ function ProfilesView() {
                 {profile.name}
                 {profile.manualOverride != null && (
                   <span className="badge badge-review"> manual ✎</span>
+                )}
+                {!profile.forecastVisible && (
+                  <span className="badge badge-review"> not in forecast</span>
                 )}
                 {profile.archived && <span className="badge badge-review"> archived</span>}
               </div>
@@ -265,6 +278,13 @@ function ProfilesView() {
               )}
             </span>
             <div className="row-actions">
+              <button
+                className="row-btn"
+                title={profile.forecastVisible ? 'Hide from forecast' : 'Show in forecast'}
+                onClick={() => toggleVisible(profile)}
+              >
+                {profile.forecastVisible ? '👁' : '🙈'}
+              </button>
               <button className="row-btn" onClick={() => setModal(profile)}>
                 Edit
               </button>

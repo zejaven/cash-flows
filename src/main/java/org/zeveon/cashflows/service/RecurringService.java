@@ -16,6 +16,9 @@ public interface RecurringService {
 
     RecurringRuleDto update(Long id, RecurringRuleRequest request, LocalDate today);
 
+    /** Toggle whether the rule contributes to the forecast; the confirm queue is unaffected. */
+    RecurringRuleDto setForecastVisible(Long id, boolean visible, LocalDate today);
+
     void delete(Long id);
 
     /** Due recurring occurrences plus due planned one-offs (FR-7.3). */
