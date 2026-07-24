@@ -54,6 +54,11 @@ export interface Transaction {
   counterAccountCurrency: string | null;
   counterAmount: number | null;
   source: TransactionSource;
+  /** Debt linkage: present when the transaction is a debt movement */
+  debtId: number | null;
+  debtName: string | null;
+  debtRole: DebtEntryRole | null;
+  txnPrincipal: number | null;
 }
 
 export interface TransactionRequest {
@@ -297,21 +302,23 @@ export interface RecurringRuleRequest {
 }
 
 export interface QueueItem {
-  kind: 'RECURRING' | 'PLANNED';
+  kind: 'RECURRING' | 'PLANNED' | 'LOAN';
   ruleId: number | null;
   plannedId: number | null;
   name: string;
   dueDate: string;
   type: TransactionType;
-  accountId: number;
-  accountName: string;
-  accountCurrency: string;
+  accountId: number | null;
+  accountName: string | null;
+  accountCurrency: string | null;
   counterAccountId: number | null;
   counterAccountName: string | null;
   counterAccountCurrency: string | null;
   suggestedAmount: number | null;
   suggestedCounterAmount: number | null;
   approx: boolean;
+  debtId: number | null;
+  scheduleItemId: number | null;
 }
 
 export interface Planned {
@@ -366,7 +373,14 @@ export interface ForecastSeries {
 }
 
 export interface ForecastEventItem {
-  kind: 'RECURRING' | 'PLANNED' | 'PROFILE_DAILY' | 'PROFILE_MONTHLY' | 'TRANSACTION';
+  kind:
+    | 'RECURRING'
+    | 'PLANNED'
+    | 'PROFILE_DAILY'
+    | 'PROFILE_MONTHLY'
+    | 'TRANSACTION'
+    | 'LOAN_PAYMENT'
+    | 'DEBT_REPAYMENT';
   refId: number;
   label: string;
   accountId: number;
@@ -469,6 +483,100 @@ export interface CompareRow {
   amountOut: number;
   lossPct: number | null;
   best: boolean;
+}
+
+// --- debts & loans (FR-13)
+
+export type DebtDirection = 'I_OWE' | 'OWED_TO_ME';
+export type DebtKind = 'PERSONAL' | 'LOAN';
+export type DebtEntryRole = 'ISSUE' | 'REPAYMENT';
+
+export interface Counterparty {
+  id: number;
+  name: string;
+  note: string | null;
+  archived: boolean;
+  debtCount: number;
+}
+
+export interface Debt {
+  id: number;
+  name: string;
+  direction: DebtDirection;
+  kind: DebtKind;
+  counterpartyId: number;
+  counterpartyName: string;
+  currency: string;
+  openingPrincipal: number;
+  anchorDate: string;
+  expectedReturnDate: string | null;
+  accountId: number | null;
+  accountName: string | null;
+  accountCurrency: string | null;
+  interestCategoryId: number | null;
+  interestCategoryName: string | null;
+  note: string | null;
+  closed: boolean;
+  outstanding: number;
+  totalPrincipal: number;
+  totalRepaid: number;
+  nextPaymentDate: string | null;
+  nextPaymentAmount: number | null;
+}
+
+export interface DebtRequest {
+  name: string;
+  direction: DebtDirection;
+  kind: DebtKind;
+  counterpartyId: number;
+  currency: string;
+  openingPrincipal: number;
+  anchorDate: string;
+  expectedReturnDate?: string | null;
+  accountId?: number | null;
+  interestCategoryId?: number | null;
+  note?: string | null;
+}
+
+export interface DebtSummary {
+  currency: string;
+  owedToMe: number;
+  iOwe: number;
+  approx: boolean;
+}
+
+export interface DebtEntry {
+  id: number;
+  debtId: number;
+  role: DebtEntryRole;
+  txnPrincipal: number;
+  debtPrincipal: number;
+  scheduleItemId: number | null;
+  transactionId: number;
+  txnDate: string;
+  txnAmount: number;
+  txnCurrency: string;
+  accountName: string;
+  description: string | null;
+}
+
+export interface LoanScheduleItem {
+  id: number;
+  position: number;
+  dueDate: string;
+  principalAmount: number;
+  interestAmount: number;
+  totalAmount: number;
+  remainingAfter: number | null;
+  skipped: boolean;
+  paid: boolean;
+  transactionId: number | null;
+}
+
+export interface ScheduleImportResult {
+  inserted: number;
+  replaced: number;
+  keptPaid: number;
 }
 
 // --- AI parser generator (FR-4.10)

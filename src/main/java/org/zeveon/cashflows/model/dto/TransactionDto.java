@@ -1,5 +1,6 @@
 package org.zeveon.cashflows.model.dto;
 
+import org.zeveon.cashflows.entity.enums.DebtEntryRole;
 import org.zeveon.cashflows.entity.enums.TransactionSource;
 import org.zeveon.cashflows.entity.enums.TransactionType;
 
@@ -30,5 +31,10 @@ public record TransactionDto(
         String counterAccountCurrency,
         BigDecimal counterAmount,
         TransactionSource source,
-        String reference) {
+        String reference,
+        /* debt linkage (FR-13.2): present when the transaction is a debt movement */
+        Long debtId,
+        String debtName,
+        DebtEntryRole debtRole,
+        BigDecimal txnPrincipal) {
 }

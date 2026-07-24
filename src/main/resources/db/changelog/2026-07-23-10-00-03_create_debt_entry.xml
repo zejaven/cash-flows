@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-23-10-00-03_create_debt_entry" author="zejaven">
+        <createTable tableName="debt_entry" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_debt_entry" nullable="false"/>
+            </column>
+            <column name="debt_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="transaction_id" type="bigint">
+                <constraints nullable="false" unique="true" uniqueConstraintName="uq_debt_entry_transaction"/>
+            </column>
+            <column name="role" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="txn_principal" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="debt_principal" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="schedule_item_id" type="bigint">
+                <constraints unique="true" uniqueConstraintName="uq_debt_entry_schedule_item"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.debt_entry
+            ADD CONSTRAINT fk_debt_entry_debt
+            FOREIGN KEY (debt_id) REFERENCES cashflow.debt (id) ON DELETE CASCADE</sql>
+        <!-- CASCADE: deleting the transaction removes the movement; a linked schedule row reopens -->
+        <sql>ALTER TABLE cashflow.debt_entry
+            ADD CONSTRAINT fk_debt_entry_transaction
+            FOREIGN KEY (transaction_id) REFERENCES cashflow.transaction (id) ON DELETE CASCADE</sql>
+        <sql>ALTER TABLE cashflow.debt_entry
+            ADD CONSTRAINT fk_debt_entry_schedule_item
+            FOREIGN KEY (schedule_item_id) REFERENCES cashflow.loan_schedule_item (id) ON DELETE SET NULL</sql>
+        <sql>ALTER TABLE cashflow.debt_entry ADD CONSTRAINT chk_debt_entry_role
+            CHECK (role IN ('ISSUE', 'REPAYMENT'))</sql>
+        <sql>ALTER TABLE cashflow.debt_entry ADD CONSTRAINT chk_debt_entry_amounts
+            CHECK (txn_principal &gt; 0 AND debt_principal &gt; 0)</sql>
+        <createIndex tableName="debt_entry" schemaName="cashflow" indexName="idx_debt_entry_debt_id">
+            <column name="debt_id"/>
+        </createIndex>
+        <rollback>
+            <dropTable tableName="debt_entry" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

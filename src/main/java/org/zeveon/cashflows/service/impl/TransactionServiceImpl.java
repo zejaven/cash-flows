@@ -22,9 +22,12 @@ import org.zeveon.cashflows.model.dto.TransactionDto;
 import org.zeveon.cashflows.model.dto.TransactionRequest;
 import org.zeveon.cashflows.repository.AccountRepository;
 import org.zeveon.cashflows.repository.CategoryRepository;
+import org.zeveon.cashflows.repository.DebtEntryRepository;
 import org.zeveon.cashflows.repository.TransactionRepository;
 import org.zeveon.cashflows.repository.spec.TransactionSpecifications;
 import org.zeveon.cashflows.service.TransactionService;
+
+import java.util.stream.Collectors;
 
 /**
  * @author Stanislav Vafin
@@ -36,6 +39,7 @@ public class TransactionServiceImpl implements TransactionService {
     private final TransactionRepository transactionRepository;
     private final AccountRepository accountRepository;
     private final CategoryRepository categoryRepository;
+    private final DebtEntryRepository debtEntryRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -43,7 +47,16 @@ public class TransactionServiceImpl implements TransactionService {
         var pageable = PageRequest.of(page, size,
                 Sort.by(Sort.Order.desc("txnDate"), Sort.Order.desc("id")));
         var result = transactionRepository.findAll(TransactionSpecifications.matching(filter), pageable);
-        return new PageDto<>(result.getContent().stream().map(TransactionMapper.INSTANCE::toDto).toList(),
+        // debt links resolved in one query — no @OneToOne on Transaction (lazy
+        // optional one-to-one degrades to N+1 without bytecode enhancement)
+        var entryByTxnId = debtEntryRepository
+                .findByTransactionIdIn(result.getContent().stream().map(Transaction::getId).toList())
+                .stream()
+                .collect(Collectors.toMap(entry -> entry.getTransaction().getId(), entry -> entry));
+        return new PageDto<>(result.getContent().stream()
+                .map(transaction -> TransactionMapper.INSTANCE.toDto(transaction,
+                        entryByTxnId.get(transaction.getId())))
+                .toList(),
                 page, size, result.getTotalElements(), result.getTotalPages());
     }
 
@@ -61,8 +74,21 @@ public class TransactionServiceImpl implements TransactionService {
     public TransactionDto update(Long id, TransactionRequest request) {
         var transaction = transactionRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Transaction", id));
+        var entry = debtEntryRepository.findByTransactionId(id).orElse(null);
+        if (entry != null) {
+            if (request.type() != transaction.getType()) {
+                throw new ConflictException(
+                        "Transaction is a debt movement of '%s' — unlink it before changing the type"
+                                .formatted(entry.getDebt().getName()));
+            }
+            if (request.amount().compareTo(entry.getTxnPrincipal()) < 0) {
+                throw new ConflictException(
+                        "Amount is below the linked debt principal %s — unlink from '%s' first"
+                                .formatted(entry.getTxnPrincipal(), entry.getDebt().getName()));
+            }
+        }
         apply(transaction, request);
-        return TransactionMapper.INSTANCE.toDto(transaction);
+        return TransactionMapper.INSTANCE.toDto(transaction, entry);
     }
 
     /**
@@ -79,6 +105,7 @@ public class TransactionServiceImpl implements TransactionService {
         if (transaction.getType() == TransactionType.TRANSFER) {
             throw new ConflictException("Transaction is already a transfer");
         }
+        requireNotDebtLinked(transaction.getId());
         if (request.counterAccountId().equals(request.accountId())) {
             throw new IllegalArgumentException("Transfer must go to a different account");
         }
@@ -125,6 +152,7 @@ public class TransactionServiceImpl implements TransactionService {
         if (!counterpart.getAccount().getId().equals(expectedAccountId)) {
             throw new ConflictException("Counterpart transaction is on the wrong account");
         }
+        requireNotDebtLinked(counterpart.getId());
         transactionRepository.delete(counterpart);
         // Hibernate flushes updates before deletes; force the delete out now, or the
         // converted row inherits the counterpart's (account_id, import_key) while the
@@ -157,6 +185,13 @@ public class TransactionServiceImpl implements TransactionService {
             requireMatchingType(transaction.getType(), category);
             transaction.setCategory(category);
         }
+    }
+
+    private void requireNotDebtLinked(Long transactionId) {
+        debtEntryRepository.findByTransactionId(transactionId).ifPresent(entry -> {
+            throw new ConflictException("Transaction is a debt movement of '%s' — unlink it first"
+                    .formatted(entry.getDebt().getName()));
+        });
     }
 
     private void apply(Transaction transaction, TransactionRequest request) {

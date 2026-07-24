@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- Grace-period loan payments (e.g. T-Bank's first months) are interest-only:
+         the entry marks the schedule row paid with a zero principal. -->
+    <changeSet id="2026-07-23-18-00-00_relax_debt_entry_zero_principal" author="zejaven">
+        <sql>ALTER TABLE cashflow.debt_entry DROP CONSTRAINT chk_debt_entry_amounts</sql>
+        <sql>ALTER TABLE cashflow.debt_entry ADD CONSTRAINT chk_debt_entry_amounts
+            CHECK (txn_principal &gt;= 0 AND debt_principal &gt;= 0)</sql>
+        <rollback>
+            <sql>ALTER TABLE cashflow.debt_entry DROP CONSTRAINT chk_debt_entry_amounts</sql>
+            <sql>ALTER TABLE cashflow.debt_entry ADD CONSTRAINT chk_debt_entry_amounts
+                CHECK (txn_principal &gt; 0 AND debt_principal &gt; 0)</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

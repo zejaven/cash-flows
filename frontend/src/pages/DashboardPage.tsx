@@ -4,6 +4,7 @@ import {
   apiErrorMessage,
   getAccounts,
   getAveragingProfiles,
+  getDebtSummary,
   getForecast,
   getRecurringQueue,
   getSummary,
@@ -17,7 +18,7 @@ import { TransactionModal } from '../components/TransactionForm';
 import { TransferModal } from '../components/TransferForm';
 import { convert, formatMoney } from '../utils/money';
 import { formatDate, today } from '../utils/dates';
-import type { Account, AveragingProfile, ForecastResponse, Summary } from '../types';
+import type { Account, AveragingProfile, DebtSummary, ForecastResponse, Summary } from '../types';
 
 export function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
@@ -26,6 +27,7 @@ export function DashboardPage() {
   const [reviewCount, setReviewCount] = useState<number | null>(null);
   const [profiles, setProfiles] = useState<AveragingProfile[]>([]);
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
+  const [debtSummary, setDebtSummary] = useState<DebtSummary | null>(null);
   const [modal, setModal] = useState<'expense' | 'transfer' | null>(null);
   const { displayCurrency, fxRates } = useSettings();
   const { toast } = useToast();
@@ -54,6 +56,9 @@ export function DashboardPage() {
     getForecast(day, 12, displayCurrency === 'ORIGINAL' ? 'NZD' : displayCurrency)
       .then(setForecast)
       .catch(() => setForecast(null));
+    getDebtSummary(displayCurrency === 'ORIGINAL' ? 'NZD' : displayCurrency)
+      .then(setDebtSummary)
+      .catch(() => setDebtSummary(null));
   }, [displayCurrency, toast]);
 
   useEffect(reload, [reload]);
@@ -159,6 +164,26 @@ export function DashboardPage() {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {debtSummary != null && (debtSummary.owedToMe > 0 || debtSummary.iOwe > 0) && (
+        <div className="card">
+          <h2>
+            Debts <Link to="/debts" style={{ float: 'right', fontSize: 13 }}>manage →</Link>
+          </h2>
+          <div className="settings-row">
+            <div className="grow">Owed to me</div>
+            <span className="amount income">
+              {debtSummary.approx && '≈ '}+{formatMoney(debtSummary.owedToMe, debtSummary.currency)}
+            </span>
+          </div>
+          <div className="settings-row">
+            <div className="grow">I owe</div>
+            <span className="amount expense">
+              {debtSummary.approx && '≈ '}−{formatMoney(debtSummary.iOwe, debtSummary.currency)}
+            </span>
+          </div>
         </div>
       )}
 

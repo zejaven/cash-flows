@@ -32,6 +32,7 @@ public class RecurringServiceImpl implements RecurringService {
     private final RecurringRuleRepository ruleRepository;
     private final RecurringOccurrenceRepository occurrenceRepository;
     private final PlannedTransactionRepository plannedRepository;
+    private final LoanScheduleItemRepository scheduleItemRepository;
     private final AccountRepository accountRepository;
     private final CategoryRepository categoryRepository;
     private final TransactionRepository transactionRepository;
@@ -100,7 +101,8 @@ public class RecurringServiceImpl implements RecurringService {
                         rule.getCounterAccount() == null ? null : rule.getCounterAccount().getId(),
                         rule.getCounterAccount() == null ? null : rule.getCounterAccount().getName(),
                         rule.getCounterAccount() == null ? null : rule.getCounterAccount().getCurrency(),
-                        current.value(), estimateCounter(rule, current.value()), current.approx()));
+                        current.value(), estimateCounter(rule, current.value()), current.approx(),
+                        null, null));
             }
         }
 
@@ -116,7 +118,23 @@ public class RecurringServiceImpl implements RecurringService {
                     planned.getCounterAccount() == null ? null : planned.getCounterAccount().getId(),
                     planned.getCounterAccount() == null ? null : planned.getCounterAccount().getName(),
                     planned.getCounterAccount() == null ? null : planned.getCounterAccount().getCurrency(),
-                    planned.getAmount(), planned.getCounterAmount(), false));
+                    planned.getAmount(), planned.getCounterAmount(), false, null, null));
+        }
+
+        // due loan payments (FR-13.7): the imported schedule is the source, not a rule
+        for (var item : scheduleItemRepository.findPendingUpTo(today)) {
+            var debt = item.getDebt();
+            var account = debt.getAccount();
+            items.add(new QueueItemDto(QueueKind.LOAN, null, null,
+                    "%s · payment #%d".formatted(debt.getName(), item.getPosition()),
+                    item.getDueDate(),
+                    DebtServiceImpl.expectedType(debt.getDirection(), DebtEntryRole.REPAYMENT),
+                    account == null ? null : account.getId(),
+                    account == null ? null : account.getName(),
+                    account == null ? null : account.getCurrency(),
+                    null, null, null,
+                    item.getTotalAmount(), null, false,
+                    debt.getId(), item.getId()));
         }
 
         items.sort(Comparator.comparing(QueueItemDto::dueDate));

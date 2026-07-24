@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-23-10-00-01_create_debt" author="zejaven">
+        <createTable tableName="debt" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_debt" nullable="false"/>
+            </column>
+            <column name="name" type="varchar(128)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="direction" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="kind" type="varchar(16)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="counterparty_id" type="bigint">
+                <constraints nullable="false" foreignKeyName="fk_debt_counterparty"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="counterparty" referencedColumnNames="id"/>
+            </column>
+            <column name="currency" type="varchar(8)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="opening_principal" type="numeric(19,4)" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+            <column name="anchor_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="expected_return_date" type="date"/>
+            <column name="account_id" type="bigint">
+                <constraints foreignKeyName="fk_debt_account"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="account" referencedColumnNames="id"/>
+            </column>
+            <column name="interest_category_id" type="bigint">
+                <constraints foreignKeyName="fk_debt_interest_category"
+                             referencedTableSchemaName="cashflow"
+                             referencedTableName="category" referencedColumnNames="id"/>
+            </column>
+            <column name="note" type="varchar(512)"/>
+            <column name="closed" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <sql>ALTER TABLE cashflow.debt ADD CONSTRAINT chk_debt_direction
+            CHECK (direction IN ('I_OWE', 'OWED_TO_ME'))</sql>
+        <sql>ALTER TABLE cashflow.debt ADD CONSTRAINT chk_debt_kind
+            CHECK (kind IN ('PERSONAL', 'LOAN'))</sql>
+        <sql>ALTER TABLE cashflow.debt ADD CONSTRAINT chk_debt_opening_principal
+            CHECK (opening_principal &gt;= 0)</sql>
+        <rollback>
+            <dropTable tableName="debt" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

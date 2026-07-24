@@ -44,6 +44,7 @@ export function TransactionModal({
   onSaved,
   onCategorized,
   onSwitchToTransfer,
+  onLinkToDebt,
 }: {
   existing?: Transaction;
   onClose: () => void;
@@ -52,6 +53,8 @@ export function TransactionModal({
   onCategorized?: (categoryId: number) => void;
   /** Swaps this modal for the transfer form (new entry or convert-to-transfer). */
   onSwitchToTransfer?: () => void;
+  /** Swaps this modal for the link-to-debt dialog (FR-13.2). */
+  onLinkToDebt?: () => void;
 }) {
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [categories, setCategories] = useState<Category[] | null>(null);
@@ -167,6 +170,18 @@ export function TransactionModal({
             </button>
           )}
         </div>
+        {onLinkToDebt && existing && (
+          <div className="form-row">
+            <button
+              type="button"
+              className="btn-ghost"
+              style={{ width: '100%' }}
+              onClick={onLinkToDebt}
+            >
+              This is a debt movement — link to a debt…
+            </button>
+          </div>
+        )}
         <div className="form-grid">
           <div className="form-row">
             <label htmlFor="txn-amount">

@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class StatementParserServiceLiveTest {
 
     private final StatementParserService service = new StatementParserServiceImpl(
-            new ImportParserProperties("python", "parsers", Duration.ofMinutes(2)));
+            new ImportParserProperties("python", "parsers", null, Duration.ofMinutes(2)));
 
     @Test
     @DisplayName("parses the real Alatau statement PDF via subprocess")
@@ -60,7 +60,7 @@ class StatementParserServiceLiveTest {
     @Test
     @DisplayName("parses a ByBit asset-history export (zip of CSVs) via subprocess")
     void parseBybitExport() {
-        var zip = Path.of("docs", "ByBit", "assetHistory_869355_20260121_20260721.zip");
+        var zip = Path.of("docs", "ByBit", "2026-07-22cd4b3bfc-4e06-4365-92e3-7c83ea66f5f4.zip");
         assertThat(Files.exists(zip)).isTrue();
 
         var dto = service.parse("bybit", zip);

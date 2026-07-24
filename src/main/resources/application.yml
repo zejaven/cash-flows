@@ -29,6 +29,7 @@ import:
   parser:
     python-command: python
     scripts-dir: parsers
+    schedule-scripts-dir: parsers/schedules
     timeout: 120s
   generator:
     enabled: true

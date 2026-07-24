@@ -6,6 +6,7 @@ import {
   getCategories,
   getAccounts,
   getDayTotals,
+  getDebts,
   getSummary,
   getTransactions,
 } from '../api';
@@ -13,8 +14,10 @@ import { useSettings } from '../context/SettingsContext';
 import { useToast } from '../context/ToastContext';
 import { Spinner } from '../components/Spinner';
 import { Approx } from '../components/Money';
+import { Modal } from '../components/Modal';
 import { TransactionModal } from '../components/TransactionForm';
 import { TransferModal } from '../components/TransferForm';
+import { DebtLinkDialog } from '../components/DebtLinkDialog';
 import { RuleModal } from '../components/CategoryRules';
 import { formatDayHeader, today } from '../utils/dates';
 import { formatMoney, formatSigned } from '../utils/money';
@@ -22,6 +25,7 @@ import type {
   Account,
   Category,
   DayTotal,
+  Debt,
   Summary,
   Transaction,
   TransactionFilters,
@@ -47,6 +51,10 @@ export function TransactionsPage() {
   const [editing, setEditing] = useState<Transaction | null>(null);
   /** Edit modal swapped to the transfer form («convert to transfer»). */
   const [convertingToTransfer, setConvertingToTransfer] = useState(false);
+  /** Edit modal swapped to the link-to-debt flow: pick a debt, then link. */
+  const [linkingToDebt, setLinkingToDebt] = useState(false);
+  const [linkDebt, setLinkDebt] = useState<Debt | null>(null);
+  const [openDebts, setOpenDebts] = useState<Debt[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [addingTransfer, setAddingTransfer] = useState(false);
   /** «Create rule?» suggestion after manually categorizing an imported txn (FR-4.7) */
@@ -293,7 +301,7 @@ export function TransactionsPage() {
       {addingTransfer && (
         <TransferModal onClose={() => setAddingTransfer(false)} onSaved={reload} />
       )}
-      {editing && editing.type !== 'TRANSFER' && !convertingToTransfer && (
+      {editing && editing.type !== 'TRANSFER' && !convertingToTransfer && !linkingToDebt && (
         <TransactionModal
           existing={editing}
           onClose={() => setEditing(null)}
@@ -304,6 +312,59 @@ export function TransactionsPage() {
             }
           }}
           onSwitchToTransfer={() => setConvertingToTransfer(true)}
+          onLinkToDebt={
+            editing.debtId == null
+              ? () => {
+                  setLinkingToDebt(true);
+                  getDebts()
+                    .then(setOpenDebts)
+                    .catch((e) => toast(apiErrorMessage(e), true));
+                }
+              : undefined
+          }
+        />
+      )}
+      {editing && linkingToDebt && linkDebt == null && (
+        <Modal
+          title="Link to debt"
+          onClose={() => {
+            setLinkingToDebt(false);
+            setOpenDebts(null);
+          }}
+        >
+          {openDebts == null ? (
+            <Spinner />
+          ) : openDebts.length === 0 ? (
+            <div className="placeholder">No open debts — create one on the Debts page first</div>
+          ) : (
+            openDebts.map((debt) => (
+              <div key={debt.id} className="settings-row">
+                <div className="grow">
+                  <div>{debt.name}</div>
+                  <div className="muted amount" style={{ fontSize: 12.5 }}>
+                    {debt.counterpartyName} · {formatMoney(debt.outstanding, debt.currency)}{' '}
+                    {debt.direction === 'OWED_TO_ME' ? 'owed to me' : 'I owe'}
+                  </div>
+                </div>
+                <button className="row-btn" onClick={() => setLinkDebt(debt)}>
+                  Choose
+                </button>
+              </div>
+            ))
+          )}
+        </Modal>
+      )}
+      {editing && linkingToDebt && linkDebt != null && (
+        <DebtLinkDialog
+          debt={linkDebt}
+          presetTransaction={editing}
+          onClose={() => {
+            setEditing(null);
+            setLinkingToDebt(false);
+            setLinkDebt(null);
+            setOpenDebts(null);
+          }}
+          onSaved={reload}
         />
       )}
       {editing && (editing.type === 'TRANSFER' || convertingToTransfer) && (
@@ -369,6 +430,12 @@ function TransactionRow({
             `${txn.categoryName} · ${txn.accountName}`
           )}
           {txn.source === 'IMPORT' && <span className="badge badge-imported"> imported</span>}
+          {txn.debtId != null && (
+            <span className="badge badge-imported" title={txn.debtName ?? undefined}>
+              {' '}
+              debt
+            </span>
+          )}
         </div>
       </div>
       <div className="txn-amounts" onClick={onOpen} style={{ cursor: 'pointer' }}>

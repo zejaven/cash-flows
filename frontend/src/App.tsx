@@ -7,6 +7,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { ImportPage } from './pages/ImportPage';
 import { RecurringPage } from './pages/RecurringPage';
+import { DebtsPage } from './pages/DebtsPage';
 import { ForecastPage } from './pages/ForecastPage';
 import { StatisticsPage } from './pages/StatisticsPage';
 import { ConvertPage } from './pages/ConvertPage';
@@ -18,6 +19,7 @@ const TITLES: Record<string, string> = {
   transactions: 'Transactions',
   import: 'Import',
   recurring: 'Recurring & planned',
+  debts: 'Debts & loans',
   forecast: 'Forecast',
   statistics: 'Statistics',
   convert: 'Convert',
@@ -70,6 +72,9 @@ export default function App() {
       <NavLink to="/recurring" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Recurring
       </NavLink>
+      <NavLink to="/debts" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
+        Debts
+      </NavLink>
       <NavLink to="/forecast" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Forecast
       </NavLink>
@@ -107,6 +112,7 @@ export default function App() {
             <Route path="/transactions" element={<TransactionsPage />} />
             <Route path="/import" element={<ImportPage />} />
             <Route path="/recurring" element={<RecurringPage />} />
+            <Route path="/debts" element={<DebtsPage />} />
             <Route path="/forecast" element={<ForecastPage />} />
             <Route path="/statistics" element={<StatisticsPage />} />
             <Route path="/convert" element={<ConvertPage />} />

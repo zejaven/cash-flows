@@ -12,6 +12,14 @@ import type {
   ConversionRoute,
   ConversionStepDef,
   ConvertToTransferRequest,
+  Counterparty,
+  Debt,
+  DebtEntry,
+  DebtEntryRole,
+  DebtRequest,
+  DebtSummary,
+  LoanScheduleItem,
+  ScheduleImportResult,
   Correction,
   DayTotalsResponse,
   FactVsForecast,
@@ -328,6 +336,96 @@ export const confirmPlanned = (
 ) => request<Planned>('POST', `/api/planned/${id}/confirm`, body);
 export const dismissPlanned = (id: number) =>
   request<Planned>('POST', `/api/planned/${id}/dismiss`, {});
+
+// --- debts & loans (FR-13)
+export const getCounterparties = (includeArchived = false) =>
+  request<Counterparty[]>('GET', `/api/counterparties${query({ includeArchived })}`);
+export const createCounterparty = (body: { name: string; note?: string | null }) =>
+  request<Counterparty>('POST', '/api/counterparties', body);
+export const updateCounterparty = (
+  id: number,
+  body: { name: string; note?: string | null; archived?: boolean },
+) => request<Counterparty>('PUT', `/api/counterparties/${id}`, body);
+export const deleteCounterparty = (id: number) =>
+  request<void>('DELETE', `/api/counterparties/${id}`);
+
+export const getDebts = (includeClosed = false) =>
+  request<Debt[]>('GET', `/api/debts${query({ includeClosed })}`);
+export const createDebt = (body: DebtRequest) => request<Debt>('POST', '/api/debts', body);
+export const updateDebt = (id: number, body: DebtRequest) =>
+  request<Debt>('PUT', `/api/debts/${id}`, body);
+export const deleteDebt = (id: number) => request<void>('DELETE', `/api/debts/${id}`);
+export const closeDebt = (id: number) => request<Debt>('POST', `/api/debts/${id}/close`, {});
+export const reopenDebt = (id: number) => request<Debt>('POST', `/api/debts/${id}/reopen`, {});
+export const getDebtSummary = (currency: string) =>
+  request<DebtSummary>('GET', `/api/debts/summary${query({ currency })}`);
+export const getDebtEntries = (debtId: number) =>
+  request<DebtEntry[]>('GET', `/api/debts/${debtId}/entries`);
+export const linkDebtTransaction = (
+  debtId: number,
+  body: {
+    transactionId: number;
+    role?: DebtEntryRole;
+    scheduleItemId?: number | null;
+    txnPrincipal?: number | null;
+    debtPrincipal?: number | null;
+  },
+) => request<DebtEntry>('POST', `/api/debts/${debtId}/link`, body);
+export const unlinkDebtEntry = (entryId: number) =>
+  request<void>('DELETE', `/api/debts/entries/${entryId}`);
+export const recordDebtMovement = (
+  debtId: number,
+  body: {
+    role: DebtEntryRole;
+    date: string;
+    accountId: number;
+    amount: number;
+    txnPrincipal?: number | null;
+    debtPrincipal?: number | null;
+    description?: string | null;
+  },
+) => request<DebtEntry>('POST', `/api/debts/${debtId}/record`, body);
+export const getDebtSchedule = (debtId: number) =>
+  request<LoanScheduleItem[]>('GET', `/api/debts/${debtId}/schedule`);
+export const getScheduleParsers = () =>
+  request<ParserInfo[]>('GET', '/api/debts/schedule-parsers');
+export const confirmLoanPayment = (body: {
+  scheduleItemId: number;
+  date?: string;
+  accountId?: number;
+  amount?: number;
+  txnPrincipal?: number;
+}) => request<DebtEntry>('POST', '/api/debts/payments/confirm', body);
+export const skipScheduleItem = (id: number) =>
+  request<void>('POST', `/api/debts/schedule-items/${id}/skip`, {});
+export const unskipScheduleItem = (id: number) =>
+  request<void>('DELETE', `/api/debts/schedule-items/${id}/skip`);
+
+export async function importDebtSchedule(
+  debtId: number,
+  parserId: string,
+  file: File,
+): Promise<ScheduleImportResult> {
+  const form = new FormData();
+  form.set('file', file);
+  // no Content-Type header: the browser sets the multipart boundary itself
+  const response = await fetch(`/api/debts/${debtId}/schedule?parserId=${encodeURIComponent(parserId)}`, {
+    method: 'POST',
+    headers: { 'X-XSRF-TOKEN': csrfToken() },
+    body: form,
+  });
+  if (response.status === 401 && unauthorizedHandler) unauthorizedHandler();
+  if (!response.ok) {
+    let errorBody: unknown = null;
+    try {
+      errorBody = await response.json();
+    } catch {
+      /* not json */
+    }
+    throw new ApiError(response.status, errorBody);
+  }
+  return response.json();
+}
 
 // --- averaging profiles
 export const getAveragingProfiles = () =>

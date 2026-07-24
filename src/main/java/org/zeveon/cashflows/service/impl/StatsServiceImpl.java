@@ -38,6 +38,7 @@ public class StatsServiceImpl implements StatsService {
     private final AveragingProfileRepository profileRepository;
     private final AveragingProfileServiceImpl averagingProfileService;
     private final FxService fxService;
+    private final DebtExclusionSupport debtExclusion;
 
     @Override
     @Transactional(readOnly = true)
@@ -50,12 +51,17 @@ public class StatsServiceImpl implements StatsService {
                 .filter(transaction -> transaction.getType() == TransactionType.EXPENSE)
                 .toList();
 
+        var principals = debtExclusion.principalByTxnId(transactions);
         var incomplete = new boolean[]{false};
         // periodStart -> (categoryKey -> amount); category key null = uncategorized
         var buckets = new TreeMap<LocalDate, Map<Long, BigDecimal>>();
         var categoryMeta = new HashMap<Long, Transaction>();
         for (var transaction : transactions) {
-            var converted = convert(transaction, target, incomplete);
+            var amount = DebtExclusionSupport.effectiveAmount(transaction, principals);
+            if (amount.signum() == 0) {
+                continue;
+            }
+            var converted = convert(transaction, amount, target, incomplete);
             if (converted == null) {
                 continue;
             }
@@ -124,13 +130,18 @@ public class StatsServiceImpl implements StatsService {
             forecast = forecast.add(converted.get());
         }
 
-        // actual: expenses of the period, system categories excluded
+        // actual: expenses of the period, system categories and debt principal excluded
         var actual = BigDecimal.ZERO;
         var transactions = transactionRepository.findAll(TransactionSpecifications.matching(
                 new TransactionFilter(from, to, null, null, TransactionType.EXPENSE, null, null),
                 true));
+        var principals = debtExclusion.principalByTxnId(transactions);
         for (var transaction : transactions) {
-            var converted = convert(transaction, target, approx);
+            var amount = DebtExclusionSupport.effectiveAmount(transaction, principals);
+            if (amount.signum() == 0) {
+                continue;
+            }
+            var converted = convert(transaction, amount, target, approx);
             if (converted != null) {
                 actual = actual.add(converted);
             }
@@ -147,8 +158,9 @@ public class StatsServiceImpl implements StatsService {
 
     // --- helpers ---
 
-    private BigDecimal convert(Transaction transaction, String target, boolean[] incomplete) {
-        var converted = fxService.convertAtDate(transaction.getAmount(),
+    private BigDecimal convert(Transaction transaction, BigDecimal amount, String target,
+                               boolean[] incomplete) {
+        var converted = fxService.convertAtDate(amount,
                 transaction.getAccount().getCurrency(), target, transaction.getTxnDate());
         if (converted.isEmpty()) {
             incomplete[0] = true;

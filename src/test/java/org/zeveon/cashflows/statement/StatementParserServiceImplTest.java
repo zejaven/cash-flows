@@ -26,8 +26,8 @@ class StatementParserServiceImplTest {
     Path scriptsDir;
 
     private StatementParserService service() {
-        return new StatementParserServiceImpl(
-                new ImportParserProperties("python", scriptsDir.toString(), Duration.ofSeconds(5)));
+        return new StatementParserServiceImpl(new ImportParserProperties(
+                "python", scriptsDir.toString(), null, Duration.ofSeconds(5)));
     }
 
     @Test
@@ -50,7 +50,7 @@ class StatementParserServiceImplTest {
     @DisplayName("availableParsers is empty when the scripts dir is missing")
     void availableParsersMissingDir() {
         var service = new StatementParserServiceImpl(new ImportParserProperties(
-                "python", scriptsDir.resolve("nope").toString(), Duration.ofSeconds(5)));
+                "python", scriptsDir.resolve("nope").toString(), null, Duration.ofSeconds(5)));
         assertThat(service.availableParsers()).isEmpty();
     }
 

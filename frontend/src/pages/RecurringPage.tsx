@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   apiErrorMessage,
+  confirmLoanPayment,
   confirmPlanned,
   confirmRecurring,
   createPlanned,
@@ -14,6 +15,7 @@ import {
   getRecurringQueue,
   getRecurringRules,
   skipRecurring,
+  skipScheduleItem,
   updatePlanned,
   updateRecurringRule,
 } from '../api';
@@ -74,7 +76,29 @@ export function RecurringPage() {
   const skip = async (item: QueueItem) => {
     try {
       if (item.kind === 'RECURRING') await skipRecurring(item.ruleId!, item.dueDate);
-      else await dismissPlanned(item.plannedId!);
+      else if (item.kind === 'PLANNED') await dismissPlanned(item.plannedId!);
+      else await skipScheduleItem(item.scheduleItemId!);
+      reload();
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    }
+  };
+
+  /** One-click confirm with the scheduled amount/date — no modal (FR-13.7). */
+  const canQuickConfirm = (item: QueueItem) =>
+    item.kind === 'PLANNED' ||
+    (item.kind === 'RECURRING' && item.suggestedAmount != null) ||
+    (item.kind === 'LOAN' && item.accountId != null);
+
+  const quickConfirm = async (item: QueueItem) => {
+    try {
+      if (item.kind === 'RECURRING') {
+        await confirmRecurring({ ruleId: item.ruleId!, dueDate: item.dueDate });
+      } else if (item.kind === 'PLANNED') {
+        await confirmPlanned(item.plannedId!, {});
+      } else {
+        await confirmLoanPayment({ scheduleItemId: item.scheduleItemId! });
+      }
       reload();
     } catch (e) {
       toast(apiErrorMessage(e), true);
@@ -111,13 +135,20 @@ export function RecurringPage() {
           <div className="placeholder">Nothing due — all caught up</div>
         ) : (
           queue.map((item) => (
-            <div key={`${item.kind}-${item.ruleId ?? item.plannedId}-${item.dueDate}`} className="queue-card">
+            <div
+              key={`${item.kind}-${item.ruleId ?? item.plannedId ?? item.scheduleItemId}-${item.dueDate}`}
+              className="queue-card"
+            >
               <div className="queue-head">
                 <div>
                   <b>{item.name}</b>
                   <div className="muted" style={{ fontSize: 12.5 }}>
                     due {formatDayHeader(item.dueDate)} ·{' '}
-                    {item.kind === 'RECURRING' ? 'recurring' : 'planned one-off'}
+                    {item.kind === 'RECURRING'
+                      ? 'recurring'
+                      : item.kind === 'PLANNED'
+                        ? 'planned one-off'
+                        : 'loan payment'}
                     {item.type === 'TRANSFER' && ` · ${item.accountName} → ${item.counterAccountName}`}
                   </div>
                 </div>
@@ -126,7 +157,7 @@ export function RecurringPage() {
                     <>
                       {item.approx && '≈ '}
                       {item.type === 'INCOME' ? '+' : '−'}
-                      {formatMoney(item.suggestedAmount, item.accountCurrency)}
+                      {formatMoney(item.suggestedAmount, item.accountCurrency ?? '')}
                     </>
                   ) : (
                     <span className="muted">amount needed</span>
@@ -134,8 +165,16 @@ export function RecurringPage() {
                 </div>
               </div>
               <div className="queue-actions">
-                <button className="btn" onClick={() => setConfirming(item)}>
-                  Confirm
+                {canQuickConfirm(item) && (
+                  <button className="btn" onClick={() => quickConfirm(item)}>
+                    Confirm
+                  </button>
+                )}
+                <button
+                  className={canQuickConfirm(item) ? 'btn-ghost' : 'btn'}
+                  onClick={() => setConfirming(item)}
+                >
+                  {canQuickConfirm(item) ? 'Edit…' : 'Confirm…'}
                 </button>
                 <button className="btn-ghost" onClick={() => skip(item)}>
                   Skip
@@ -276,8 +315,16 @@ function ConfirmModal({
   const [counterAmount, setCounterAmount] = useState(
     item.suggestedCounterAmount != null ? String(item.suggestedCounterAmount) : '',
   );
+  // LOAN payments from a debt without a bound account need an explicit one
+  const needsAccount = item.kind === 'LOAN' && item.accountId == null;
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountId, setAccountId] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (needsAccount) getAccounts().then(setAccounts).catch(() => {});
+  }, [needsAccount]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -291,11 +338,18 @@ function ConfirmModal({
           amount: amount ? Number(amount) : undefined,
           counterAmount: counterAmount ? Number(counterAmount) : undefined,
         });
-      } else {
+      } else if (item.kind === 'PLANNED') {
         await confirmPlanned(item.plannedId!, {
           date,
           amount: amount ? Number(amount) : undefined,
           counterAmount: counterAmount ? Number(counterAmount) : undefined,
+        });
+      } else {
+        await confirmLoanPayment({
+          scheduleItemId: item.scheduleItemId!,
+          date,
+          amount: amount ? Number(amount) : undefined,
+          accountId: accountId ? Number(accountId) : undefined,
         });
       }
       onSaved();
@@ -310,9 +364,31 @@ function ConfirmModal({
   return (
     <Modal title={`Confirm · ${item.name}`} onClose={onClose}>
       <form onSubmit={submit}>
+        {needsAccount && (
+          <div className="form-row">
+            <label htmlFor="cf-account">Account</label>
+            <select
+              id="cf-account"
+              value={accountId}
+              onChange={(e) => setAccountId(Number(e.target.value))}
+              required
+            >
+              <option value="" disabled>
+                Choose…
+              </option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.currency})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="form-grid">
           <div className="form-row">
-            <label htmlFor="cf-amount">Amount ({item.accountCurrency})</label>
+            <label htmlFor="cf-amount">
+              Amount{item.accountCurrency ? ` (${item.accountCurrency})` : ''}
+            </label>
             <input
               id="cf-amount"
               type="number"

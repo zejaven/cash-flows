@@ -7,6 +7,9 @@ import org.zeveon.cashflows.entity.Account;
 import org.zeveon.cashflows.entity.RecurringOccurrence;
 import org.zeveon.cashflows.entity.RecurringRule;
 import org.zeveon.cashflows.entity.enums.AveragingGranularity;
+import org.zeveon.cashflows.entity.enums.DebtDirection;
+import org.zeveon.cashflows.entity.enums.DebtEntryRole;
+import org.zeveon.cashflows.entity.enums.DebtKind;
 import org.zeveon.cashflows.entity.enums.PlannedStatus;
 import org.zeveon.cashflows.entity.enums.TransactionType;
 import org.zeveon.cashflows.model.TransactionFilter;
@@ -37,6 +40,9 @@ public class ForecastServiceImpl implements ForecastService {
     private final RecurringOccurrenceRepository occurrenceRepository;
     private final PlannedTransactionRepository plannedRepository;
     private final AveragingProfileRepository profileRepository;
+    private final LoanScheduleItemRepository scheduleItemRepository;
+    private final DebtRepository debtRepository;
+    private final DebtEntryRepository debtEntryRepository;
     private final RecurringAmountCalculator amountCalculator;
     private final AveragingProfileServiceImpl averagingProfileService;
     private final FxService fxService;
@@ -205,6 +211,65 @@ public class ForecastServiceImpl implements ForecastService {
                     month = month.plusMonths(1);
                 }
             }
+        }
+
+        // loan payments come from the imported schedule (FR-13.5): exact dates and
+        // amounts; unpaid overdue rows land on today like recurring occurrences
+        for (var item : scheduleItemRepository.findPendingUpTo(horizonEnd)) {
+            var debt = item.getDebt();
+            var account = debt.getAccount();
+            if (account == null || !accountIds.contains(account.getId())) {
+                continue;
+            }
+            var effectiveDate = item.getDueDate().isBefore(today) ? today : item.getDueDate();
+            var outgoing = debt.getDirection() == DebtDirection.I_OWE;
+            add(events, effectiveDate, new Event(EventKind.LOAN_PAYMENT, item.getId(),
+                    "%s · payment #%d".formatted(debt.getName(), item.getPosition()),
+                    account.getId(),
+                    outgoing ? item.getTotalAmount().negate() : item.getTotalAmount(),
+                    null, null, false, true));
+        }
+
+        // personal debts expected back (FR-13.4): outstanding lands on the debt's
+        // account at the expected return date, FX-estimated across currencies
+        var sums = new HashMap<Long, Map<DebtEntryRole, BigDecimal>>();
+        for (var sum : debtEntryRepository.sumPrincipalsByDebt()) {
+            sums.computeIfAbsent(sum.getDebtId(), id -> new HashMap<>())
+                    .put(sum.getRole(), sum.getTotal());
+        }
+        for (var debt : debtRepository.findByClosedFalseOrderByCreatedAtAsc()) {
+            var account = debt.getAccount();
+            if (debt.getKind() != DebtKind.PERSONAL || debt.getExpectedReturnDate() == null
+                    || account == null || !accountIds.contains(account.getId())
+                    || debt.getExpectedReturnDate().isAfter(horizonEnd)) {
+                continue;
+            }
+            var byRole = sums.getOrDefault(debt.getId(), Map.of());
+            var outstanding = DebtCalculator.outstanding(debt,
+                    byRole.get(DebtEntryRole.ISSUE), byRole.get(DebtEntryRole.REPAYMENT));
+            if (outstanding.signum() <= 0) {
+                continue;
+            }
+            var approx = false;
+            var amount = outstanding;
+            if (!debt.getCurrency().equalsIgnoreCase(account.getCurrency())) {
+                amount = fxService.currentRates()
+                        .flatMap(current -> fxService.convert(outstanding, debt.getCurrency(),
+                                account.getCurrency(), current.rates()))
+                        .map(value -> value.setScale(2, RoundingMode.HALF_UP))
+                        .orElse(null);
+                if (amount == null) {
+                    continue;  // no rate — better absent than a guess
+                }
+                approx = true;
+            }
+            var effectiveDate = debt.getExpectedReturnDate().isBefore(today)
+                    ? today : debt.getExpectedReturnDate();
+            var incoming = debt.getDirection() == DebtDirection.OWED_TO_ME;
+            add(events, effectiveDate, new Event(EventKind.DEBT_REPAYMENT, debt.getId(),
+                    debt.getName(), account.getId(),
+                    incoming ? amount : amount.negate(),
+                    null, null, approx, true));
         }
 
         // future-dated real transactions — the forecast must not diverge from them

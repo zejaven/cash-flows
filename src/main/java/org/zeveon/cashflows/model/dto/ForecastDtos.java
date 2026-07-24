@@ -17,7 +17,10 @@ public final class ForecastDtos {
     private ForecastDtos() {
     }
 
-    public enum EventKind {RECURRING, PLANNED, PROFILE_DAILY, PROFILE_MONTHLY, TRANSACTION}
+    public enum EventKind {
+        RECURRING, PLANNED, PROFILE_DAILY, PROFILE_MONTHLY, TRANSACTION,
+        LOAN_PAYMENT, DEBT_REPAYMENT
+    }
 
     public record AccountRef(Long id, String name, String currency) {
     }

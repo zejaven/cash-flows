@@ -36,19 +36,25 @@ public class AggregationServiceImpl implements AggregationService {
 
     private final TransactionRepository transactionRepository;
     private final FxService fxService;
+    private final DebtExclusionSupport debtExclusion;
 
     @Override
     @Transactional(readOnly = true)
     public DayTotalsResponse dayTotals(TransactionFilter filter, String currency) {
         var transactions = fetch(filter);
+        var principals = debtExclusion.principalByTxnId(transactions);
         if (ORIGINAL.equalsIgnoreCase(currency)) {
-            return originalDayTotals(transactions);
+            return originalDayTotals(transactions, principals);
         }
         var target = currency.toUpperCase();
         var incomplete = new boolean[]{false};
         Map<LocalDate, BigDecimal[]> byDay = new TreeMap<>();
         for (var transaction : transactions) {
-            var converted = convertAtOwnDate(transaction, target, incomplete);
+            var amount = DebtExclusionSupport.effectiveAmount(transaction, principals);
+            if (amount.signum() == 0) {
+                continue;
+            }
+            var converted = convertAtOwnDate(transaction, amount, target, incomplete);
             if (converted == null) {
                 continue;
             }
@@ -77,13 +83,18 @@ public class AggregationServiceImpl implements AggregationService {
         var rangeFilter = new TransactionFilter(from, to, filter.accountId(), filter.categoryId(),
                 filter.type(), filter.q(), filter.needsReview());
         var transactions = fetch(rangeFilter);
+        var principals = debtExclusion.principalByTxnId(transactions);
 
         var incomplete = new boolean[]{false};
         var day = new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
         var week = new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
         var month = new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO};
         for (var transaction : transactions) {
-            var converted = convertAtOwnDate(transaction, target, incomplete);
+            var amount = DebtExclusionSupport.effectiveAmount(transaction, principals);
+            if (amount.signum() == 0) {
+                continue;
+            }
+            var converted = convertAtOwnDate(transaction, amount, target, incomplete);
             if (converted == null) {
                 continue;
             }
@@ -113,12 +124,13 @@ public class AggregationServiceImpl implements AggregationService {
     }
 
     /**
-     * Converts the transaction amount from its account currency into the target,
-     * with the rate table of the transaction's own date. Null (and the incomplete
-     * flag) when no rate is available.
+     * Converts the effective amount (debt principal already subtracted) from the
+     * account currency into the target, with the rate table of the transaction's
+     * own date. Null (and the incomplete flag) when no rate is available.
      */
-    private BigDecimal convertAtOwnDate(Transaction transaction, String target, boolean[] incomplete) {
-        var converted = fxService.convertAtDate(transaction.getAmount(),
+    private BigDecimal convertAtOwnDate(Transaction transaction, BigDecimal amount,
+                                        String target, boolean[] incomplete) {
+        var converted = fxService.convertAtDate(amount,
                 transaction.getAccount().getCurrency(), target, transaction.getTxnDate());
         if (converted.isEmpty()) {
             incomplete[0] = true;
@@ -127,14 +139,19 @@ public class AggregationServiceImpl implements AggregationService {
         return converted.get();
     }
 
-    private DayTotalsResponse originalDayTotals(List<Transaction> transactions) {
+    private DayTotalsResponse originalDayTotals(List<Transaction> transactions,
+                                                Map<Long, BigDecimal> principals) {
         Map<LocalDate, Map<String, BigDecimal[]>> byDay = new TreeMap<>();
         for (var transaction : transactions) {
+            var amount = DebtExclusionSupport.effectiveAmount(transaction, principals);
+            if (amount.signum() == 0) {
+                continue;
+            }
             var totals = byDay
                     .computeIfAbsent(transaction.getTxnDate(), d -> new HashMap<>())
                     .computeIfAbsent(transaction.getAccount().getCurrency(),
                             c -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
-            accumulate(totals, transaction.getType(), transaction.getAmount());
+            accumulate(totals, transaction.getType(), amount);
         }
         var days = byDay.entrySet().stream()
                 .map(entry -> new DayTotalDto(entry.getKey(), null, null,

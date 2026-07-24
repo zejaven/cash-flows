@@ -26,4 +26,9 @@
     <include file="db/changelog/2026-07-22-12-00-00_create_generator_settings.xml"/>
     <include file="db/changelog/2026-07-22-16-00-00_strip_parser_id_suffix.xml"/>
     <include file="db/changelog/2026-07-22-18-00-00_widen_reference_columns.xml"/>
+    <include file="db/changelog/2026-07-23-10-00-00_create_counterparty.xml"/>
+    <include file="db/changelog/2026-07-23-10-00-01_create_debt.xml"/>
+    <include file="db/changelog/2026-07-23-10-00-02_create_loan_schedule_item.xml"/>
+    <include file="db/changelog/2026-07-23-10-00-03_create_debt_entry.xml"/>
+    <include file="db/changelog/2026-07-23-18-00-00_relax_debt_entry_zero_principal.xml"/>
 </databaseChangeLog>

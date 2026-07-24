@@ -14,6 +14,7 @@ import org.zeveon.cashflows.exception.ConflictException;
 import org.zeveon.cashflows.model.dto.ConvertToTransferRequest;
 import org.zeveon.cashflows.repository.AccountRepository;
 import org.zeveon.cashflows.repository.CategoryRepository;
+import org.zeveon.cashflows.repository.DebtEntryRepository;
 import org.zeveon.cashflows.repository.TransactionRepository;
 import org.zeveon.cashflows.service.impl.TransactionServiceImpl;
 
@@ -44,6 +45,9 @@ class TransactionServiceImplTest {
 
     @Mock
     private CategoryRepository categoryRepository;
+
+    @Mock
+    private DebtEntryRepository debtEntryRepository;
 
     @InjectMocks
     private TransactionServiceImpl transactionService;

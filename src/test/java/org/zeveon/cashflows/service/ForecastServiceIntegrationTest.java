@@ -73,6 +73,18 @@ class ForecastServiceIntegrationTest {
     @Autowired
     private CategoryRepository categoryRepository;
 
+    @Autowired
+    private CounterpartyRepository counterpartyRepository;
+
+    @Autowired
+    private DebtRepository debtRepository;
+
+    @Autowired
+    private DebtEntryRepository debtEntryRepository;
+
+    @Autowired
+    private LoanScheduleItemRepository scheduleItemRepository;
+
     @MockitoBean
     private FxService fxService;
 
@@ -81,6 +93,10 @@ class ForecastServiceIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        debtEntryRepository.deleteAll();
+        scheduleItemRepository.deleteAll();
+        debtRepository.deleteAll();
+        counterpartyRepository.deleteAll();
         occurrenceRepository.deleteAll();
         ruleRepository.deleteAll();
         plannedRepository.deleteAll();
@@ -202,6 +218,74 @@ class ForecastServiceIntegrationTest {
         // total in USD on Aug 1: 800 + 80 NZD / 2 = 840
         assertThat(response.forecast().total().get(aug1)).isEqualByComparingTo("840");
         assertThat(response.approxTotal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("loan schedule payments and expected debt repayments enter the forecast")
+    void debtEvents() {
+        var counterparty = counterpartyRepository.save(Counterparty.builder().name("Bank").build());
+        var loan = debtRepository.save(Debt.builder()
+                .name("Mortgage").direction(DebtDirection.I_OWE).kind(DebtKind.LOAN)
+                .counterparty(counterparty).currency("USD")
+                .openingPrincipal(new BigDecimal("10000")).anchorDate(LocalDate.of(2026, 1, 1))
+                .account(usd).build());
+        // overdue unpaid row snaps to today; the future one stays on its date
+        scheduleItemRepository.save(LoanScheduleItem.builder()
+                .debt(loan).position(1).dueDate(LocalDate.of(2026, 7, 15))
+                .principalAmount(new BigDecimal("90")).interestAmount(new BigDecimal("10"))
+                .totalAmount(new BigDecimal("100")).build());
+        scheduleItemRepository.save(LoanScheduleItem.builder()
+                .debt(loan).position(2).dueDate(LocalDate.of(2026, 8, 17))
+                .principalAmount(new BigDecimal("91")).interestAmount(new BigDecimal("9"))
+                .totalAmount(new BigDecimal("100")).build());
+
+        var lent = debtRepository.save(Debt.builder()
+                .name("Friend").direction(DebtDirection.OWED_TO_ME).kind(DebtKind.PERSONAL)
+                .counterparty(counterparty).currency("USD")
+                .openingPrincipal(new BigDecimal("500")).anchorDate(LocalDate.of(2026, 1, 1))
+                .expectedReturnDate(LocalDate.of(2026, 9, 1))
+                .account(usd).build());
+
+        var response = forecastService.forecast(TODAY, 3, "USD", TODAY.minusDays(7));
+        var usdSeries = response.forecast().series().get(usd.getId());
+        var dates = response.forecast().dates();
+
+        // today: 1000 - 100 (overdue loan payment snapped to today)
+        assertThat(usdSeries.getFirst()).isEqualByComparingTo("900");
+        var aug17 = dates.indexOf(LocalDate.of(2026, 8, 17));
+        assertThat(usdSeries.get(aug17)).isEqualByComparingTo("800");
+        // Sep 1: friend's 500 comes back
+        var sep1 = dates.indexOf(LocalDate.of(2026, 9, 1));
+        assertThat(usdSeries.get(sep1)).isEqualByComparingTo("1300");
+
+        assertThat(response.eventDays())
+                .filteredOn(day -> day.date().equals(LocalDate.of(2026, 9, 1)))
+                .first()
+                .satisfies(day -> assertThat(day.items())
+                        .anySatisfy(item -> {
+                            assertThat(item.kind().name()).isEqualTo("DEBT_REPAYMENT");
+                            assertThat(item.delta()).isEqualByComparingTo("500");
+                        }));
+        assertThat(response.eventDays().getFirst().items())
+                .anySatisfy(item -> assertThat(item.kind().name()).isEqualTo("LOAN_PAYMENT"));
+
+        // a paid row leaves the forecast
+        var row2 = scheduleItemRepository.findByDebtIdOrderByDueDateAscPositionAsc(loan.getId())
+                .getLast();
+        var payment = transactionRepository.save(Transaction.builder()
+                .type(TransactionType.EXPENSE).txnDate(LocalDate.of(2026, 8, 17))
+                .account(usd).amount(new BigDecimal("100"))
+                .source(TransactionSource.MANUAL).build());
+        debtEntryRepository.save(DebtEntry.builder()
+                .debt(loan).transaction(payment).role(DebtEntryRole.REPAYMENT)
+                .txnPrincipal(new BigDecimal("91")).debtPrincipal(new BigDecimal("91"))
+                .scheduleItem(row2).build());
+
+        var after = forecastService.forecast(TODAY, 3, "USD", TODAY.minusDays(7));
+        assertThat(after.eventDays())
+                .flatMap(day -> day.items())
+                .filteredOn(item -> item.kind().name().equals("LOAN_PAYMENT"))
+                .hasSize(1);   // only the overdue row #1 remains pending
     }
 
     @Test

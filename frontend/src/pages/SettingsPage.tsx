@@ -4,12 +4,15 @@ import {
   createAccount,
   createBank,
   createCategory,
+  createCounterparty,
   deleteAccount,
   deleteBank,
   deleteCategory,
+  deleteCounterparty,
   getAccounts,
   getBanks,
   getCategories,
+  getCounterparties,
   getGeneratorOptions,
   getGeneratorSettings,
   getParsers,
@@ -17,6 +20,7 @@ import {
   updateAccount,
   updateBank,
   updateCategory,
+  updateCounterparty,
   updateGeneratorSettings,
 } from '../api';
 import { DISPLAY_CURRENCIES, useSettings, type DisplayCurrency } from '../context/SettingsContext';
@@ -33,6 +37,7 @@ import type {
   Bank,
   Category,
   CategoryType,
+  Counterparty,
   GeneratorOptions,
   GeneratorSettings,
   ParserInfo,
@@ -44,26 +49,43 @@ export function SettingsPage() {
   const [banks, setBanks] = useState<Bank[] | null>(null);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [categories, setCategories] = useState<Category[] | null>(null);
+  const [counterparties, setCounterparties] = useState<Counterparty[] | null>(null);
   const [bankModal, setBankModal] = useState<Bank | 'new' | null>(null);
   const [accountModal, setAccountModal] = useState<Account | 'new' | null>(null);
   const [categoryModal, setCategoryModal] = useState<Category | 'new' | null>(null);
+  const [counterpartyModal, setCounterpartyModal] = useState<Counterparty | 'new' | null>(null);
   const [parsers, setParsers] = useState<ParserInfo[]>([]);
 
   const reload = useCallback(() => {
     getBanks().then(setBanks).catch((e) => toast(apiErrorMessage(e), true));
     getAccounts(true).then(setAccounts).catch((e) => toast(apiErrorMessage(e), true));
     getCategories(true).then(setCategories).catch((e) => toast(apiErrorMessage(e), true));
+    getCounterparties(true).then(setCounterparties).catch((e) => toast(apiErrorMessage(e), true));
     getParsers().then(setParsers).catch(() => setParsers([]));
   }, [toast]);
 
   useEffect(reload, [reload]);
 
-  const remove = async (kind: 'bank' | 'account' | 'category', id: number) => {
+  const remove = async (kind: 'bank' | 'account' | 'category' | 'counterparty', id: number) => {
     if (!confirm('Delete permanently?')) return;
     try {
       if (kind === 'bank') await deleteBank(id);
       else if (kind === 'account') await deleteAccount(id);
+      else if (kind === 'counterparty') await deleteCounterparty(id);
       else await deleteCategory(id);
+      reload();
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    }
+  };
+
+  const toggleCounterpartyArchived = async (counterparty: Counterparty) => {
+    try {
+      await updateCounterparty(counterparty.id, {
+        name: counterparty.name,
+        note: counterparty.note,
+        archived: !counterparty.archived,
+      });
       reload();
     } catch (e) {
       toast(apiErrorMessage(e), true);
@@ -267,6 +289,50 @@ export function SettingsPage() {
         )}
       </div>
 
+      <div className="card">
+        <h2>
+          Counterparties · debts{' '}
+          <button
+            className="row-btn"
+            style={{ float: 'right' }}
+            onClick={() => setCounterpartyModal('new')}
+          >
+            + Add
+          </button>
+        </h2>
+        {counterparties == null ? (
+          <Spinner />
+        ) : counterparties.length === 0 ? (
+          <div className="placeholder">Who owes you, or whom you owe — used on the Debts page</div>
+        ) : (
+          counterparties.map((counterparty) => (
+            <div key={counterparty.id} className="settings-row">
+              <div className="grow">
+                <div>
+                  {counterparty.name}{' '}
+                  {counterparty.archived && <span className="badge badge-review">archived</span>}
+                </div>
+                <div className="muted" style={{ fontSize: 12.5 }}>
+                  {counterparty.debtCount} debts
+                  {counterparty.note ? ` · ${counterparty.note}` : ''}
+                </div>
+              </div>
+              <div className="row-actions">
+                <button className="row-btn" onClick={() => setCounterpartyModal(counterparty)}>
+                  Edit
+                </button>
+                <button className="row-btn" onClick={() => toggleCounterpartyArchived(counterparty)}>
+                  {counterparty.archived ? 'Unarchive' : 'Archive'}
+                </button>
+                <button className="row-btn" onClick={() => remove('counterparty', counterparty.id)}>
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <CategoryRulesCard />
 
       <GeneratorSettingsCard />
@@ -294,7 +360,62 @@ export function SettingsPage() {
           onSaved={reload}
         />
       )}
+      {counterpartyModal && (
+        <CounterpartyForm
+          existing={counterpartyModal === 'new' ? null : counterpartyModal}
+          onClose={() => setCounterpartyModal(null)}
+          onSaved={reload}
+        />
+      )}
     </>
+  );
+}
+
+function CounterpartyForm({
+  existing,
+  onClose,
+  onSaved,
+}: {
+  existing: Counterparty | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(existing?.name ?? '');
+  const [note, setNote] = useState(existing?.note ?? '');
+  const { toast } = useToast();
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    try {
+      const body = { name, note: note || null };
+      if (existing) await updateCounterparty(existing.id, { ...body, archived: existing.archived });
+      else await createCounterparty(body);
+      onSaved();
+      onClose();
+    } catch (err) {
+      toast(apiErrorMessage(err), true);
+    }
+  }
+
+  return (
+    <Modal title={existing ? 'Edit counterparty' : 'New counterparty'} onClose={onClose}>
+      <form onSubmit={submit}>
+        <div className="form-row">
+          <label htmlFor="cp-name">Name</label>
+          <input id="cp-name" value={name} onChange={(e) => setName(e.target.value)} required />
+        </div>
+        <div className="form-row">
+          <label htmlFor="cp-note">Note</label>
+          <input id="cp-note" value={note} onChange={(e) => setNote(e.target.value)} />
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn-ghost" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn">Save</button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

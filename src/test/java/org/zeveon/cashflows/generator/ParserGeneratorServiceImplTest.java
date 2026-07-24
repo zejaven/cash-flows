@@ -49,7 +49,8 @@ class ParserGeneratorServiceImplTest {
                 ".generator-tmp", "prompts/generate-parser.md",
                 new ImportGeneratorProperties.Cli("claude", List.of("", "claude-fable-5")),
                 new ImportGeneratorProperties.Cli("codex", List.of("")));
-        var parserProperties = new ImportParserProperties("python", "parsers", Duration.ofMinutes(2));
+        var parserProperties = new ImportParserProperties("python", "parsers", null,
+                Duration.ofMinutes(2));
         return new ParserGeneratorServiceImpl(properties, parserProperties, settingsService,
                 cliRunner, promptBuilder, parserService);
     }

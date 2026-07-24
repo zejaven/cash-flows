@@ -14,6 +14,7 @@ import org.zeveon.cashflows.entity.enums.*;
 import org.zeveon.cashflows.model.dto.StatsDtos.Granularity;
 import org.zeveon.cashflows.repository.*;
 import org.zeveon.cashflows.service.impl.AveragingProfileServiceImpl;
+import org.zeveon.cashflows.service.impl.DebtExclusionSupport;
 import org.zeveon.cashflows.service.impl.FxServiceImpl;
 import org.zeveon.cashflows.service.impl.StatsServiceImpl;
 import org.zeveon.cashflows.fx.FxFacade;
@@ -36,7 +37,8 @@ import static org.mockito.Mockito.mock;
  */
 @Tag("integration")
 @DataJpaTest
-@Import({StatsServiceImpl.class, AveragingProfileServiceImpl.class, StatsServiceIntegrationTest.RealFxConfig.class})
+@Import({StatsServiceImpl.class, AveragingProfileServiceImpl.class, DebtExclusionSupport.class,
+        StatsServiceIntegrationTest.RealFxConfig.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:postgresql://localhost:5434/cash_flows_test",

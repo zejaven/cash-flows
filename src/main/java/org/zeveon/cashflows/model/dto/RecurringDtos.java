@@ -51,7 +51,7 @@ public final class RecurringDtos {
             Boolean archived) {
     }
 
-    public enum QueueKind {RECURRING, PLANNED}
+    public enum QueueKind {RECURRING, PLANNED, LOAN}
 
     public record QueueItemDto(
             QueueKind kind,
@@ -59,7 +59,8 @@ public final class RecurringDtos {
             String name, LocalDate dueDate, TransactionType type,
             Long accountId, String accountName, String accountCurrency,
             Long counterAccountId, String counterAccountName, String counterAccountCurrency,
-            BigDecimal suggestedAmount, BigDecimal suggestedCounterAmount, boolean approx) {
+            BigDecimal suggestedAmount, BigDecimal suggestedCounterAmount, boolean approx,
+            /* LOAN items (FR-13.7) */ Long debtId, Long scheduleItemId) {
     }
 
     public record ConfirmRequest(@NotNull Long ruleId, @NotNull LocalDate dueDate,

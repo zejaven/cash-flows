@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-23-10-00-02_create_loan_schedule_item" author="zejaven">
+        <createTable tableName="loan_schedule_item" schemaName="cashflow">
+            <column name="id" type="bigint" autoIncrement="true" generationType="BY DEFAULT">
+                <constraints primaryKey="true" primaryKeyName="pk_loan_schedule_item" nullable="false"/>
+            </column>
+            <column name="debt_id" type="bigint">
+                <constraints nullable="false"/>
+            </column>
+            <column name="position" type="int">
+                <constraints nullable="false"/>
+            </column>
+            <column name="due_date" type="date">
+                <constraints nullable="false"/>
+            </column>
+            <column name="principal_amount" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="interest_amount" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="total_amount" type="numeric(19,4)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="remaining_after" type="numeric(19,4)"/>
+            <column name="skipped" type="boolean" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_at" type="timestamptz" defaultValueComputed="now()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <!-- CASCADE: the schedule has no life outside its debt -->
+        <sql>ALTER TABLE cashflow.loan_schedule_item
+            ADD CONSTRAINT fk_loan_schedule_item_debt
+            FOREIGN KEY (debt_id) REFERENCES cashflow.debt (id) ON DELETE CASCADE</sql>
+        <sql>ALTER TABLE cashflow.loan_schedule_item ADD CONSTRAINT chk_loan_schedule_item_amounts
+            CHECK (principal_amount &gt;= 0 AND interest_amount &gt;= 0 AND total_amount &gt; 0)</sql>
+        <addUniqueConstraint tableName="loan_schedule_item" schemaName="cashflow"
+                             columnNames="debt_id, due_date"
+                             constraintName="uq_loan_schedule_item_debt_due"/>
+        <rollback>
+            <dropTable tableName="loan_schedule_item" schemaName="cashflow"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

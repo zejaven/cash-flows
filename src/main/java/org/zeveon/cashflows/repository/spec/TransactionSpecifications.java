@@ -2,6 +2,7 @@ package org.zeveon.cashflows.repository.spec;
 
 import jakarta.persistence.criteria.JoinType;
 import org.springframework.data.jpa.domain.Specification;
+import org.zeveon.cashflows.entity.DebtEntry;
 import org.zeveon.cashflows.entity.Transaction;
 import org.zeveon.cashflows.entity.enums.TransactionType;
 import org.zeveon.cashflows.model.TransactionFilter;
@@ -52,9 +53,17 @@ public final class TransactionSpecifications {
                         "%" + filter.q().toLowerCase() + "%"));
             }
             if (Boolean.TRUE.equals(filter.needsReview())) {
+                // A fully-principal debt movement (txnPrincipal = amount) carries no
+                // spending to categorize — it must not scream "needs review" (FR-13.3)
+                var fullPrincipal = query.subquery(Long.class);
+                var entry = fullPrincipal.from(DebtEntry.class);
+                fullPrincipal.select(cb.literal(1L)).where(cb.and(
+                        cb.equal(entry.get("transaction"), root),
+                        cb.equal(entry.get("txnPrincipal"), root.get("amount"))));
                 predicates.add(cb.and(
                         cb.isNull(root.get("category")),
-                        cb.notEqual(root.get("type"), TransactionType.TRANSFER)));
+                        cb.notEqual(root.get("type"), TransactionType.TRANSFER),
+                        cb.not(cb.exists(fullPrincipal))));
             }
             if (excludeSystemCategories) {
                 var category = root.join("category", JoinType.LEFT);
