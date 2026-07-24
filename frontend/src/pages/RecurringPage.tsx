@@ -14,6 +14,7 @@ import {
   getPlanned,
   getRecurringQueue,
   getRecurringRules,
+  setPlannedForecastVisible,
   setRecurringForecastVisible,
   skipRecurring,
   skipScheduleItem,
@@ -129,6 +130,15 @@ export function RecurringPage() {
     if (!confirm('Delete planned transaction?')) return;
     try {
       await deletePlanned(item.id);
+      reload();
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    }
+  };
+
+  const togglePlannedVisible = async (item: Planned) => {
+    try {
+      await setPlannedForecastVisible(item.id, !item.forecastVisible);
       reload();
     } catch (e) {
       toast(apiErrorMessage(e), true);
@@ -278,7 +288,12 @@ export function RecurringPage() {
             .map((item) => (
               <div key={item.id} className="settings-row">
                 <div className="grow">
-                  <div>{item.description || 'Planned'}</div>
+                  <div>
+                    {item.description || 'Planned'}
+                    {!item.forecastVisible && (
+                      <span className="badge badge-review"> not in forecast</span>
+                    )}
+                  </div>
                   <div className="muted" style={{ fontSize: 12.5 }}>
                     {formatDate(item.dueDate)} · {item.accountName}
                     {item.categoryName && ` · ${item.categoryName}`}
@@ -289,6 +304,13 @@ export function RecurringPage() {
                   {formatMoney(item.amount, item.accountCurrency)}
                 </span>
                 <div className="row-actions">
+                  <button
+                    className="row-btn"
+                    title={item.forecastVisible ? 'Hide from forecast' : 'Show in forecast'}
+                    onClick={() => togglePlannedVisible(item)}
+                  >
+                    {item.forecastVisible ? '👁' : '🙈'}
+                  </button>
                   <button className="row-btn" onClick={() => setPlannedModal(item)}>
                     Edit
                   </button>

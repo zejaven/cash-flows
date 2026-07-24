@@ -17,6 +17,9 @@ public interface PlannedTransactionService {
 
     PlannedDto update(Long id, PlannedRequest request);
 
+    /** Toggle whether the planned one-off contributes to the forecast. */
+    PlannedDto setForecastVisible(Long id, boolean visible);
+
     void delete(Long id);
 
     PlannedDto confirm(Long id, PlannedConfirmRequest request);

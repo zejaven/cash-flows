@@ -65,6 +65,15 @@ public class PlannedTransactionServiceImpl implements PlannedTransactionService 
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public PlannedDto setForecastVisible(Long id, boolean visible) {
+        var planned = plannedRepository.findById(id)
+                .orElseThrow(() -> NotFoundException.of("Planned transaction", id));
+        planned.setForecastVisible(visible);
+        return toDto(planned);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         plannedRepository.delete(plannedRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Planned transaction", id)));
@@ -180,7 +189,7 @@ public class PlannedTransactionServiceImpl implements PlannedTransactionService 
                 planned.getCategory() == null ? null : planned.getCategory().getId(),
                 planned.getCategory() == null ? null : planned.getCategory().getName(),
                 planned.getCategory() == null ? null : planned.getCategory().getColor(),
-                planned.getDescription(), planned.getStatus(),
+                planned.getDescription(), planned.getStatus(), planned.isForecastVisible(),
                 planned.getTransaction() == null ? null : planned.getTransaction().getId());
     }
 }

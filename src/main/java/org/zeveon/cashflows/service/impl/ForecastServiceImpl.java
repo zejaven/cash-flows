@@ -173,7 +173,8 @@ public class ForecastServiceImpl implements ForecastService {
 
         // planned PENDING
         for (var planned : plannedRepository.findByStatusOrderByDueDateAsc(PlannedStatus.PENDING)) {
-            if (!accountIds.contains(planned.getAccount().getId())
+            if (!planned.isForecastVisible()
+                    || !accountIds.contains(planned.getAccount().getId())
                     || planned.getDueDate().isAfter(horizonEnd)) {
                 continue;
             }

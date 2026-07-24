@@ -67,6 +67,11 @@ public class PlannedTransaction {
     @Column(name = "status", nullable = false)
     private PlannedStatus status;
 
+    /** When false the planned one-off is excluded from the forecast projection. */
+    @Builder.Default
+    @Column(name = "forecast_visible", nullable = false)
+    private boolean forecastVisible = true;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "transaction_id")
     private Transaction transaction;

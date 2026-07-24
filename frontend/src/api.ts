@@ -331,6 +331,8 @@ export const createPlanned = (body: Partial<Planned>) =>
   request<Planned>('POST', '/api/planned', body);
 export const updatePlanned = (id: number, body: Partial<Planned>) =>
   request<Planned>('PUT', `/api/planned/${id}`, body);
+export const setPlannedForecastVisible = (id: number, visible: boolean) =>
+  request<Planned>('PATCH', `/api/planned/${id}/forecast-visible${query({ visible })}`);
 export const deletePlanned = (id: number) => request<void>('DELETE', `/api/planned/${id}`);
 export const confirmPlanned = (
   id: number,

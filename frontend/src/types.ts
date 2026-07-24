@@ -342,6 +342,7 @@ export interface Planned {
   categoryColor: string | null;
   description: string | null;
   status: PlannedStatus;
+  forecastVisible: boolean;
   transactionId: number | null;
 }
 

@@ -38,6 +38,12 @@ public class PlannedTransactionController {
         return ResponseEntity.ok(plannedService.update(id, request));
     }
 
+    @PatchMapping("/{id}/forecast-visible")
+    public ResponseEntity<PlannedDto> setForecastVisible(@PathVariable Long id,
+                                                         @RequestParam boolean visible) {
+        return ResponseEntity.ok(plannedService.setForecastVisible(id, visible));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         plannedService.delete(id);

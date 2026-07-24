@@ -279,6 +279,11 @@ class ForecastServiceIntegrationTest {
                 .scheduleFreq(ScheduleFrequency.MONTHLY).dayOfMonth(1).startDate(TODAY)
                 .amountStrategy(AmountStrategy.FIXED).amount(new BigDecimal("500"))
                 .forecastVisible(false).archived(false).build());
+        // would post 700 NZD on Aug 5, but hidden from the forecast
+        plannedRepository.save(PlannedTransaction.builder()
+                .type(TransactionType.EXPENSE).dueDate(LocalDate.of(2026, 8, 5))
+                .account(nzd).amount(new BigDecimal("700")).description("Hidden flight")
+                .status(PlannedStatus.PENDING).forecastVisible(false).build());
 
         var response = forecastService.forecast(TODAY, 1, "NZD", TODAY);
         var nzdSeries = response.forecast().series().get(nzd.getId());
@@ -287,9 +292,10 @@ class ForecastServiceIntegrationTest {
         // no future drain from the hidden profile: balance is flat day to day
         assertThat(nzdSeries.get(dates.indexOf(TODAY)))
                 .isEqualByComparingTo(nzdSeries.get(dates.indexOf(TODAY.plusDays(1))));
-        // the hidden rule produces no forecast event
+        // neither the hidden rule nor the hidden planned one-off produce a forecast event
         assertThat(response.eventDays().stream().flatMap(day -> day.items().stream())
-                .noneMatch(item -> item.label().equals("Hidden rent"))).isTrue();
+                .noneMatch(item -> item.label().equals("Hidden rent")
+                        || item.label().equals("Hidden flight"))).isTrue();
     }
 
     @Test

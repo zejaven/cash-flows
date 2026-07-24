@@ -23,7 +23,7 @@ public final class PlannedDtos {
             Long counterAccountId, String counterAccountName, String counterAccountCurrency,
             BigDecimal amount, BigDecimal counterAmount,
             Long categoryId, String categoryName, String categoryColor,
-            String description, PlannedStatus status, Long transactionId) {
+            String description, PlannedStatus status, boolean forecastVisible, Long transactionId) {
     }
 
     public record PlannedRequest(
