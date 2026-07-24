@@ -65,9 +65,14 @@ public class AveragingProfile {
     @Column(name = "period_to")
     private LocalDate periodTo;
 
-    /** ROLLING window length in days (ending today); null when windowMode is FIXED. */
+    /** ROLLING window length in days; null when windowMode is FIXED. */
     @Column(name = "rolling_days")
     private Integer rollingDays;
+
+    /** ROLLING window end offset: it ends this many days before today (recent
+     * still-settling payments fall outside). Null when windowMode is FIXED. */
+    @Column(name = "rolling_offset_days")
+    private Integer rollingOffsetDays;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "category_filter_mode", nullable = false)

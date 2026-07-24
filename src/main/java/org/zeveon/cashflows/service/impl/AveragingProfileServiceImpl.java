@@ -103,9 +103,9 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
         var account = accountRepository.findById(request.accountId())
                 .orElseThrow(() -> NotFoundException.of("Account", request.accountId()));
         validateWindow(request.windowMode(), request.periodFrom(), request.periodTo(),
-                request.rollingDays());
+                request.rollingDays(), request.rollingOffsetDays());
         var window = resolveWindow(request.windowMode(), request.periodFrom(), request.periodTo(),
-                request.rollingDays(), today);
+                request.rollingDays(), request.rollingOffsetDays(), today);
         return compute(account, request.granularity(), window.from(), window.to(),
                 request.categoryFilterMode(),
                 request.categoryIds() == null ? Set.of() : Set.copyOf(request.categoryIds()));
@@ -115,7 +115,7 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
     @Transactional(readOnly = true)
     public ComputedValue computeFor(AveragingProfile profile, LocalDate today) {
         var window = resolveWindow(profile.getWindowMode(), profile.getPeriodFrom(),
-                profile.getPeriodTo(), profile.getRollingDays(), today);
+                profile.getPeriodTo(), profile.getRollingDays(), profile.getRollingOffsetDays(), today);
         return compute(profile.getAccount(), profile.getGranularity(),
                 window.from(), window.to(), profile.getCategoryFilterMode(),
                 profile.getCategories().stream().map(Category::getId).collect(Collectors.toSet()));
@@ -125,21 +125,32 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
         return profile.getManualOverride() != null ? profile.getManualOverride() : computed.value();
     }
 
-    /** Resolves the concrete [from, to] window: FIXED bounds, or last-N-days ending today. */
+    /**
+     * Resolves the concrete [from, to] window: FIXED bounds, or last-N-days ending
+     * {@code rollingOffsetDays} before today (the offset lets recent, still-settling
+     * card payments fall outside the window until they are imported).
+     */
     private static Window resolveWindow(AveragingWindowMode mode, LocalDate periodFrom,
-                                        LocalDate periodTo, Integer rollingDays, LocalDate today) {
+                                        LocalDate periodTo, Integer rollingDays,
+                                        Integer rollingOffsetDays, LocalDate today) {
         if (mode == AveragingWindowMode.ROLLING) {
             var days = rollingDays == null ? DEFAULT_ROLLING_DAYS : rollingDays;
-            return new Window(today.minusDays(days - 1L), today);
+            var offset = rollingOffsetDays == null ? 0 : rollingOffsetDays;
+            var to = today.minusDays(offset);
+            return new Window(to.minusDays(days - 1L), to);
         }
         return new Window(periodFrom, periodTo);
     }
 
     private static void validateWindow(AveragingWindowMode mode, LocalDate periodFrom,
-                                       LocalDate periodTo, Integer rollingDays) {
+                                       LocalDate periodTo, Integer rollingDays,
+                                       Integer rollingOffsetDays) {
         if (mode == AveragingWindowMode.ROLLING) {
             if (rollingDays == null || rollingDays < 1) {
                 throw new IllegalArgumentException("ROLLING window needs rollingDays >= 1");
+            }
+            if (rollingOffsetDays != null && rollingOffsetDays < 0) {
+                throw new IllegalArgumentException("rollingOffsetDays must be >= 0");
             }
         } else {
             if (periodFrom == null || periodTo == null) {
@@ -208,7 +219,7 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
 
     private void apply(AveragingProfile profile, ProfileRequest request) {
         validateWindow(request.windowMode(), request.periodFrom(), request.periodTo(),
-                request.rollingDays());
+                request.rollingDays(), request.rollingOffsetDays());
         profile.setName(request.name());
         profile.setAccount(accountRepository.findById(request.accountId())
                 .orElseThrow(() -> NotFoundException.of("Account", request.accountId())));
@@ -216,12 +227,15 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
         profile.setWindowMode(request.windowMode());
         if (request.windowMode() == AveragingWindowMode.ROLLING) {
             profile.setRollingDays(request.rollingDays());
+            profile.setRollingOffsetDays(request.rollingOffsetDays() == null
+                    ? 0 : request.rollingOffsetDays());
             profile.setPeriodFrom(null);
             profile.setPeriodTo(null);
         } else {
             profile.setPeriodFrom(request.periodFrom());
             profile.setPeriodTo(request.periodTo());
             profile.setRollingDays(null);
+            profile.setRollingOffsetDays(null);
         }
         profile.setCategoryFilterMode(request.categoryFilterMode());
         var categories = new LinkedHashSet<Category>();
@@ -243,7 +257,7 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
                 profile.getAccount().getCurrency(),
                 profile.getGranularity(),
                 profile.getWindowMode(), profile.getPeriodFrom(), profile.getPeriodTo(),
-                profile.getRollingDays(),
+                profile.getRollingDays(), profile.getRollingOffsetDays(),
                 profile.getCategoryFilterMode(),
                 profile.getCategories().stream().map(Category::getId).sorted().toList(),
                 profile.getManualOverride(), profile.isArchived(), profile.isForecastVisible(),

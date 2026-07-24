@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- ROLLING window can end N days before today so recent still-settling
+         card payments fall outside it. Backfill existing ROLLING profiles to 0. -->
+    <changeSet id="2026-07-24-16-00-00_add_averaging_profile_rolling_offset" author="zejaven">
+        <addColumn tableName="averaging_profile" schemaName="cashflow">
+            <column name="rolling_offset_days" type="int"/>
+        </addColumn>
+        <sql>UPDATE cashflow.averaging_profile SET rolling_offset_days = 0
+            WHERE window_mode = 'ROLLING' AND rolling_offset_days IS NULL</sql>
+        <rollback>
+            <dropColumn tableName="averaging_profile" schemaName="cashflow"
+                        columnName="rolling_offset_days"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

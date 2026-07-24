@@ -365,6 +365,7 @@ export interface AveragingProfile {
   periodFrom: string | null;
   periodTo: string | null;
   rollingDays: number | null;
+  rollingOffsetDays: number | null;
   categoryFilterMode: CategoryFilterMode;
   categoryIds: number[];
   manualOverride: number | null;

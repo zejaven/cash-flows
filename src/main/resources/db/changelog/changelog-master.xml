@@ -38,4 +38,5 @@
     <include file="db/changelog/2026-07-24-15-00-00_add_recurring_rule_forecast_visible.xml"/>
     <include file="db/changelog/2026-07-24-15-00-01_add_averaging_profile_forecast_visible.xml"/>
     <include file="db/changelog/2026-07-24-15-00-02_add_planned_transaction_forecast_visible.xml"/>
+    <include file="db/changelog/2026-07-24-16-00-00_add_averaging_profile_rolling_offset.xml"/>
 </databaseChangeLog>

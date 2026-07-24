@@ -28,7 +28,8 @@ public final class AveragingProfileDtos {
             Long id, String name,
             Long accountId, String accountName, String accountCurrency,
             AveragingGranularity granularity,
-            AveragingWindowMode windowMode, LocalDate periodFrom, LocalDate periodTo, Integer rollingDays,
+            AveragingWindowMode windowMode, LocalDate periodFrom, LocalDate periodTo,
+            Integer rollingDays, Integer rollingOffsetDays,
             CategoryFilterMode categoryFilterMode, List<Long> categoryIds,
             BigDecimal manualOverride, boolean archived, boolean forecastVisible,
             ComputedValue computed, BigDecimal effectiveValue) {
@@ -42,6 +43,7 @@ public final class AveragingProfileDtos {
             LocalDate periodFrom,
             LocalDate periodTo,
             Integer rollingDays,
+            Integer rollingOffsetDays,
             @NotNull CategoryFilterMode categoryFilterMode,
             List<Long> categoryIds,
             BigDecimal manualOverride,
@@ -55,6 +57,7 @@ public final class AveragingProfileDtos {
             LocalDate periodFrom,
             LocalDate periodTo,
             Integer rollingDays,
+            Integer rollingOffsetDays,
             @NotNull CategoryFilterMode categoryFilterMode,
             List<Long> categoryIds) {
     }

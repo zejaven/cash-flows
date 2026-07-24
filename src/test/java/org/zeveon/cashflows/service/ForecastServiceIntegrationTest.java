@@ -254,6 +254,43 @@ class ForecastServiceIntegrationTest {
     }
 
     @Test
+    @DisplayName("ROLLING offset ends the window N days before today, skipping recent spend")
+    void rollingWindowOffset() {
+        var groceries = categoryRepository.findByNameAndType("groceries", CategoryType.EXPENSE)
+                .orElseThrow();
+        // in-window (rollingDays 5, offset 3 -> [today-7, today-3]): 20 NZD/day
+        for (int i = 3; i <= 7; i++) {
+            transactionRepository.save(Transaction.builder()
+                    .type(TransactionType.EXPENSE).txnDate(TODAY.minusDays(i))
+                    .account(nzd).amount(new BigDecimal("20")).category(groceries)
+                    .source(TransactionSource.MANUAL).build());
+        }
+        // recent spike (today-2..today) that the 3-day offset must exclude
+        for (int i = 0; i <= 2; i++) {
+            transactionRepository.save(Transaction.builder()
+                    .type(TransactionType.EXPENSE).txnDate(TODAY.minusDays(i))
+                    .account(nzd).amount(new BigDecimal("500")).category(groceries)
+                    .source(TransactionSource.MANUAL).build());
+        }
+        var profile = profileRepository.save(AveragingProfile.builder()
+                .name("Groceries lagged").account(nzd)
+                .granularity(AveragingGranularity.DAILY)
+                .windowMode(AveragingWindowMode.ROLLING).rollingDays(5).rollingOffsetDays(3)
+                .categoryFilterMode(CategoryFilterMode.INCLUDE)
+                .archived(false).build());
+        profile.getCategories().add(groceries);
+        profileRepository.save(profile);
+
+        var response = forecastService.forecast(TODAY, 1, "NZD", TODAY);
+        var nzdSeries = response.forecast().series().get(nzd.getId());
+        var dates = response.forecast().dates();
+        // daily rate is 100/5 = 20/day from the window, not inflated by the recent 500/day
+        assertThat(nzdSeries.get(dates.indexOf(TODAY))
+                .subtract(nzdSeries.get(dates.indexOf(TODAY.plusDays(1)))))
+                .isEqualByComparingTo("20");
+    }
+
+    @Test
     @DisplayName("forecast-hidden rules and profiles contribute nothing to the forecast")
     void hiddenContributorsExcluded() {
         var groceries = categoryRepository.findByNameAndType("groceries", CategoryType.EXPENSE)

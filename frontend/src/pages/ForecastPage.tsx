@@ -280,7 +280,9 @@ function ProfilesView() {
               </div>
               <div className="muted" style={{ fontSize: 12.5 }}>
                 {profile.windowMode === 'ROLLING'
-                  ? `last ${profile.rollingDays} days`
+                  ? `last ${profile.rollingDays} days${
+                      profile.rollingOffsetDays ? `, ending ${profile.rollingOffsetDays}d ago` : ''
+                    }`
                   : `${formatDate(profile.periodFrom ?? '')} – ${formatDate(profile.periodTo ?? '')}`}{' '}
                 · {profile.categoryFilterMode === 'INCLUDE' ? 'only selected' : 'all except selected'}{' '}
                 · {profile.accountName}
@@ -349,6 +351,9 @@ function ProfileForm({
   const [periodFrom, setPeriodFrom] = useState(existing?.periodFrom ?? '');
   const [periodTo, setPeriodTo] = useState(existing?.periodTo ?? today());
   const [rollingDays, setRollingDays] = useState(String(existing?.rollingDays ?? 30));
+  const [rollingOffsetDays, setRollingOffsetDays] = useState(
+    String(existing?.rollingOffsetDays ?? 0),
+  );
   const [mode, setMode] = useState<CategoryFilterMode>(existing?.categoryFilterMode ?? 'INCLUDE');
   const [selected, setSelected] = useState<Set<number>>(new Set(existing?.categoryIds ?? []));
   const [override, setOverride] = useState(
@@ -383,6 +388,7 @@ function ProfileForm({
           periodFrom: windowMode === 'FIXED' ? periodFrom : null,
           periodTo: windowMode === 'FIXED' ? periodTo : null,
           rollingDays: windowMode === 'ROLLING' ? Number(rollingDays) : null,
+          rollingOffsetDays: windowMode === 'ROLLING' ? Number(rollingOffsetDays) : null,
           categoryFilterMode: mode,
           categoryIds: [...selected],
         },
@@ -392,7 +398,18 @@ function ProfileForm({
         .catch(() => setComputed(null));
     }, 350);
     return () => clearTimeout(timer);
-  }, [accountId, granularity, windowMode, periodFrom, periodTo, rollingDays, mode, selected, windowReady]);
+  }, [
+    accountId,
+    granularity,
+    windowMode,
+    periodFrom,
+    periodTo,
+    rollingDays,
+    rollingOffsetDays,
+    mode,
+    selected,
+    windowReady,
+  ]);
 
   const toggleCategory = (id: number) =>
     setSelected((current) => {
@@ -415,6 +432,7 @@ function ProfileForm({
         periodFrom: windowMode === 'FIXED' ? periodFrom : null,
         periodTo: windowMode === 'FIXED' ? periodTo : null,
         rollingDays: windowMode === 'ROLLING' ? Number(rollingDays) : null,
+        rollingOffsetDays: windowMode === 'ROLLING' ? Number(rollingOffsetDays) : null,
         categoryFilterMode: mode,
         categoryIds: [...selected],
         manualOverride: override ? Number(override) : null,
@@ -488,21 +506,39 @@ function ProfileForm({
             </div>
           </div>
         ) : (
-          <div className="form-row">
-            <label htmlFor="pf-rolling">Last N days (ending today)</label>
-            <input
-              id="pf-rolling"
-              type="number"
-              min="1"
-              value={rollingDays}
-              onChange={(e) => setRollingDays(e.target.value)}
-              required
-            />
-            <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
-              Always averages the most recent {rollingDays || 'N'} days — no need to edit dates as
-              time passes.
+          <>
+            <div className="form-grid">
+              <div className="form-row">
+                <label htmlFor="pf-rolling">Last N days</label>
+                <input
+                  id="pf-rolling"
+                  type="number"
+                  min="1"
+                  value={rollingDays}
+                  onChange={(e) => setRollingDays(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="form-row">
+                <label htmlFor="pf-offset">End N days before today</label>
+                <input
+                  id="pf-offset"
+                  type="number"
+                  min="0"
+                  value={rollingOffsetDays}
+                  onChange={(e) => setRollingOffsetDays(e.target.value)}
+                  required
+                />
+              </div>
             </div>
-          </div>
+            <div className="form-row">
+              <div className="muted" style={{ fontSize: 12.5 }}>
+                {Number(rollingOffsetDays) > 0
+                  ? `Averages the ${rollingDays || 'N'} days ending ${rollingOffsetDays} day(s) ago — the most recent ${rollingOffsetDays} day(s) are skipped so still-settling payments don't skew it.`
+                  : `Averages the most recent ${rollingDays || 'N'} days — no need to edit dates as time passes.`}
+              </div>
+            </div>
+          </>
         )}
         <div className="form-row" style={{ display: 'flex', gap: 8 }}>
           <button
