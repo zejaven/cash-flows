@@ -28,7 +28,7 @@ public final class RecurringDtos {
             ScheduleFrequency scheduleFreq, Integer dayOfMonth, Integer dayOfWeek, Integer intervalDays,
             LocalDate startDate, LocalDate endDate,
             AmountStrategy amountStrategy, BigDecimal amount, BigDecimal counterAmount,
-            Integer avgLookback, boolean archived,
+            Integer avgLookback, boolean archived, boolean forecastOnly,
             /* computed */ LocalDate nextDue, BigDecimal currentAmount, boolean approxAmount) {
     }
 
@@ -48,7 +48,8 @@ public final class RecurringDtos {
             @Positive BigDecimal amount,
             @Positive BigDecimal counterAmount,
             Integer avgLookback,
-            Boolean archived) {
+            Boolean archived,
+            Boolean forecastOnly) {
     }
 
     public enum QueueKind {RECURRING, PLANNED, LOAN}

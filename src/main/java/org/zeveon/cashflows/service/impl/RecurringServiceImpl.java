@@ -83,8 +83,9 @@ public class RecurringServiceImpl implements RecurringService {
     public List<QueueItemDto> queue(LocalDate today) {
         var items = new ArrayList<QueueItemDto>();
 
+        // forecast-only rules opt out of the confirm queue (they still project in the forecast)
         var rules = ruleRepository.findByArchivedFalseOrderByIdAsc().stream()
-                .filter(rule -> !rule.getAccount().isArchived())
+                .filter(rule -> !rule.getAccount().isArchived() && !rule.isForecastOnly())
                 .toList();
         var actedOnByRule = occurrenceRepository
                 .findByRuleIdIn(rules.stream().map(RecurringRule::getId).toList()).stream()
@@ -308,6 +309,9 @@ public class RecurringServiceImpl implements RecurringService {
         if (request.archived() != null) {
             rule.setArchived(request.archived());
         }
+        if (request.forecastOnly() != null) {
+            rule.setForecastOnly(request.forecastOnly());
+        }
     }
 
     private Category resolveCategory(RecurringRuleRequest request) {
@@ -367,7 +371,7 @@ public class RecurringServiceImpl implements RecurringService {
                 rule.getScheduleFreq(), rule.getDayOfMonth(), rule.getDayOfWeek(), rule.getIntervalDays(),
                 rule.getStartDate(), rule.getEndDate(),
                 rule.getAmountStrategy(), rule.getAmount(), rule.getCounterAmount(),
-                rule.getAvgLookback(), rule.isArchived(),
+                rule.getAvgLookback(), rule.isArchived(), rule.isForecastOnly(),
                 nextDue, current.value(), current.approx());
     }
 

@@ -31,4 +31,5 @@
     <include file="db/changelog/2026-07-23-10-00-02_create_loan_schedule_item.xml"/>
     <include file="db/changelog/2026-07-23-10-00-03_create_debt_entry.xml"/>
     <include file="db/changelog/2026-07-23-18-00-00_relax_debt_entry_zero_principal.xml"/>
+    <include file="db/changelog/2026-07-24-12-00-00_add_recurring_rule_forecast_only.xml"/>
 </databaseChangeLog>

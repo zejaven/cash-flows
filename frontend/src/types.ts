@@ -277,6 +277,7 @@ export interface RecurringRule {
   counterAmount: number | null;
   avgLookback: number | null;
   archived: boolean;
+  forecastOnly: boolean;
   nextDue: string | null;
   currentAmount: number | null;
   approxAmount: boolean;
@@ -299,6 +300,7 @@ export interface RecurringRuleRequest {
   counterAmount?: number | null;
   avgLookback?: number | null;
   archived?: boolean;
+  forecastOnly?: boolean;
 }
 
 export interface QueueItem {

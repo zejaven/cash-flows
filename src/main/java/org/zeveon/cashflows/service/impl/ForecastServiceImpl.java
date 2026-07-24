@@ -161,8 +161,10 @@ public class ForecastServiceImpl implements ForecastService {
                 continue;  // no basis to forecast; the queue asks for a manual amount
             }
             var actedOn = actedOnByRule.getOrDefault(rule.getId(), Set.of());
-            for (var dueDate : ScheduleCalculator.pendingBetween(rule, actedOn,
-                    rule.getStartDate(), horizonEnd)) {
+            // forecast-only rules never get acted on, so their overdue occurrences would
+            // pile up on today — project them from today forward instead of the start date
+            var from = rule.isForecastOnly() ? today : rule.getStartDate();
+            for (var dueDate : ScheduleCalculator.pendingBetween(rule, actedOn, from, horizonEnd)) {
                 var effectiveDate = dueDate.isBefore(today) ? today : dueDate;
                 add(events, effectiveDate, recurringEvent(rule, current, accountIds));
             }

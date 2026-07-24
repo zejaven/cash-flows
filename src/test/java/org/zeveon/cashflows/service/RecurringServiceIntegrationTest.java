@@ -89,7 +89,7 @@ class RecurringServiceIntegrationTest {
                 "Rent", TransactionType.EXPENSE, account.getId(), null, rent.getId(),
                 ScheduleFrequency.MONTHLY, 2, null, null,
                 LocalDate.of(2026, 6, 1), null,
-                AmountStrategy.FIXED, new BigDecimal("7500"), null, null, null), today);
+                AmountStrategy.FIXED, new BigDecimal("7500"), null, null, null, null), today);
     }
 
     @Test
@@ -128,6 +128,18 @@ class RecurringServiceIntegrationTest {
 
         recurringService.deleteOccurrence(skipped.id());
         assertThat(recurringService.queue(today)).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("forecast-only rule never enters the confirm queue")
+    void forecastOnlyRuleNotInQueue() {
+        recurringService.create(new RecurringRuleRequest(
+                "Groceries", TransactionType.EXPENSE, account.getId(), null, rent.getId(),
+                ScheduleFrequency.MONTHLY, 2, null, null,
+                LocalDate.of(2026, 6, 1), null,
+                AmountStrategy.FIXED, new BigDecimal("7500"), null, null, null, true), today);
+
+        assertThat(recurringService.queue(today)).isEmpty();
     }
 
     @Test

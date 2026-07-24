@@ -19,8 +19,11 @@ import java.time.LocalDate;
 /**
  * Recurring operation (FR-7.1/7.2). Due occurrences never create transactions
  * silently — they enter a confirm queue (FR-7.3) and count toward the forecast
- * until acted on. AVERAGE amounts are computed from the last {@code avgLookback}
- * actual transactions of the rule's own category; TRANSFER rules are FIXED-only
+ * until acted on. A {@code forecastOnly} rule opts out of the queue entirely:
+ * its occurrences are projected in the forecast (future dates only, so nothing
+ * piles up on today) but never surface for confirmation and never materialize.
+ * AVERAGE amounts are computed from the last {@code avgLookback} actual
+ * transactions of the rule's own category; TRANSFER rules are FIXED-only
  * (transfers carry no category to average over).
  *
  * @author Stanislav Vafin
@@ -94,6 +97,10 @@ public class RecurringRule {
 
     @Column(name = "archived", nullable = false)
     private boolean archived;
+
+    /** When true the rule is forecast-only: no confirm-queue items, never materialized. */
+    @Column(name = "forecast_only", nullable = false)
+    private boolean forecastOnly;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

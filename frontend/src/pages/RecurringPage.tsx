@@ -204,6 +204,9 @@ export function RecurringPage() {
                   {rule.amountStrategy === 'AVERAGE' && (
                     <span className="badge badge-review">avg {rule.avgLookback}</span>
                   )}
+                  {rule.forecastOnly && (
+                    <span className="badge badge-imported">forecast only</span>
+                  )}
                   {rule.archived && <span className="badge badge-review"> archived</span>}
                 </div>
                 <div className="muted" style={{ fontSize: 12.5 }}>
@@ -466,6 +469,7 @@ function RuleForm({
     existing?.counterAmount != null ? String(existing.counterAmount) : '',
   );
   const [avgLookback, setAvgLookback] = useState(String(existing?.avgLookback ?? 3));
+  const [forecastOnly, setForecastOnly] = useState(existing?.forecastOnly ?? false);
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
 
@@ -496,6 +500,7 @@ function RuleForm({
         counterAmount: type === 'TRANSFER' && counterAmount ? Number(counterAmount) : null,
         avgLookback: strategy === 'AVERAGE' ? Number(avgLookback) : null,
         archived: existing?.archived ?? false,
+        forecastOnly,
       };
       if (existing) await updateRecurringRule(existing.id, body, today());
       else await createRecurringRule(body, today());
@@ -736,6 +741,32 @@ function RuleForm({
               />
             </div>
           )}
+        </div>
+        <div className="form-row">
+          <label>Confirmation</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className={!forecastOnly ? 'btn' : 'btn-ghost'}
+              style={{ flex: 1 }}
+              onClick={() => setForecastOnly(false)}
+            >
+              Needs confirmation
+            </button>
+            <button
+              type="button"
+              className={forecastOnly ? 'btn' : 'btn-ghost'}
+              style={{ flex: 1 }}
+              onClick={() => setForecastOnly(true)}
+            >
+              Forecast only
+            </button>
+          </div>
+          <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+            {forecastOnly
+              ? 'Counted in the forecast, but never appears in the confirm queue and never becomes a transaction.'
+              : 'Due occurrences appear in the confirm queue to be confirmed or skipped.'}
+          </div>
         </div>
         <div className="form-actions">
           <button type="button" className="btn-ghost" onClick={onClose}>
