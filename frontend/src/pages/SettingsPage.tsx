@@ -3,7 +3,6 @@ import {
   apiErrorMessage,
   createAccount,
   createBank,
-  createCategory,
   createCounterparty,
   deleteAccount,
   deleteBank,
@@ -27,6 +26,7 @@ import { DISPLAY_CURRENCIES, useSettings, type DisplayCurrency } from '../contex
 import { useToast } from '../context/ToastContext';
 import { Modal } from '../components/Modal';
 import { Spinner } from '../components/Spinner';
+import { CategoryForm } from '../components/CategoryForm';
 import { CategoryRulesCard } from '../components/CategoryRules';
 import { formatMoney, KNOWN_CURRENCIES } from '../utils/money';
 import { formatDate, today } from '../utils/dates';
@@ -36,7 +36,6 @@ import type {
   AgentProvider,
   Bank,
   Category,
-  CategoryType,
   Counterparty,
   GeneratorOptions,
   GeneratorSettings,
@@ -749,71 +748,3 @@ function AccountForm({
   );
 }
 
-function CategoryForm({
-  existing,
-  onClose,
-  onSaved,
-}: {
-  existing: Category | null;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [name, setName] = useState(existing?.name ?? '');
-  const [type, setType] = useState<CategoryType>(existing?.type ?? 'EXPENSE');
-  const [color, setColor] = useState(existing?.color ?? '#5a83f7');
-  const { toast } = useToast();
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    try {
-      const body = { name, type, color, archived: existing?.archived ?? false };
-      if (existing) await updateCategory(existing.id, body as Partial<Category>);
-      else await createCategory(body as Partial<Category>);
-      onSaved();
-      onClose();
-    } catch (err) {
-      toast(apiErrorMessage(err), true);
-    }
-  }
-
-  return (
-    <Modal title={existing ? 'Edit category' : 'New category'} onClose={onClose}>
-      <form onSubmit={submit}>
-        <div className="form-row">
-          <label htmlFor="cat-name">Name</label>
-          <input id="cat-name" value={name} onChange={(e) => setName(e.target.value)} required />
-        </div>
-        <div className="form-grid">
-          <div className="form-row">
-            <label htmlFor="cat-type">Type</label>
-            <select
-              id="cat-type"
-              value={type}
-              onChange={(e) => setType(e.target.value as CategoryType)}
-              disabled={existing?.system}
-            >
-              <option value="EXPENSE">Expense</option>
-              <option value="INCOME">Income</option>
-            </select>
-          </div>
-          <div className="form-row">
-            <label htmlFor="cat-color">Color</label>
-            <input
-              id="cat-color"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              style={{ padding: 4, height: 40 }}
-            />
-          </div>
-        </div>
-        <div className="form-actions">
-          <button type="button" className="btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn">Save</button>
-        </div>
-      </form>
-    </Modal>
-  );
-}

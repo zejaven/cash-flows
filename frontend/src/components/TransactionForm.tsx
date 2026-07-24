@@ -9,6 +9,7 @@ import {
 } from '../api';
 import { useToast } from '../context/ToastContext';
 import { Modal } from './Modal';
+import { CategoryForm } from './CategoryForm';
 import { Spinner } from './Spinner';
 import { today } from '../utils/dates';
 import { formatMoney } from '../utils/money';
@@ -75,6 +76,7 @@ export function TransactionModal({
     existing?.originalAmount != null ? String(existing.originalAmount) : '',
   );
   const [busy, setBusy] = useState(false);
+  const [creatingCategory, setCreatingCategory] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -258,6 +260,14 @@ export function TransactionModal({
                 {c.name}
               </button>
             ))}
+            <button
+              type="button"
+              className="chip"
+              style={{ fontWeight: 700, borderStyle: 'dashed' }}
+              onClick={() => setCreatingCategory(true)}
+            >
+              + New
+            </button>
           </div>
         </div>
         <div className="form-row">
@@ -336,6 +346,17 @@ export function TransactionModal({
           </button>
         </div>
       </form>
+      {creatingCategory && (
+        <CategoryForm
+          existing={null}
+          defaultType={type === 'INCOME' ? 'INCOME' : 'EXPENSE'}
+          onClose={() => setCreatingCategory(false)}
+          onSaved={(category) => {
+            setCategories((current) => [...(current ?? []), category]);
+            setCategoryId(category.id);
+          }}
+        />
+      )}
     </Modal>
   );
 }
