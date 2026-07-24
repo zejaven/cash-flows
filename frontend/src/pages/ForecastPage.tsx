@@ -30,6 +30,7 @@ import type {
 } from '../types';
 
 const HORIZONS = [3, 6, 12, 24];
+const HORIZON_KEY = 'forecast-horizon';
 
 export function ForecastPage() {
   const [tab, setTab] = useState<'forecast' | 'profiles'>('forecast');
@@ -52,7 +53,10 @@ export function ForecastPage() {
 
 function ForecastView() {
   const [data, setData] = useState<ForecastResponse | null>(null);
-  const [horizon, setHorizon] = useState(12);
+  const [horizon, setHorizon] = useState(() => {
+    const stored = Number(localStorage.getItem(HORIZON_KEY));
+    return HORIZONS.includes(stored) ? stored : 12;
+  });
   const [accountId, setAccountId] = useState<number | 'all'>('all');
   const { displayCurrency } = useSettings();
   const { toast } = useToast();
@@ -106,7 +110,14 @@ function ForecastView() {
             </option>
           ))}
         </select>
-        <select value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>
+        <select
+          value={horizon}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            localStorage.setItem(HORIZON_KEY, String(next));
+            setHorizon(next);
+          }}
+        >
           {HORIZONS.map((months) => (
             <option key={months} value={months}>
               Horizon {months} mo
@@ -133,6 +144,7 @@ function ForecastView() {
             forecast={series.forecast}
             currency={chartCurrency}
             negativeDate={negativeForSelection}
+            horizonMonths={horizon}
           />
         )}
       </div>

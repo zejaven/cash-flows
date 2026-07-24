@@ -20,15 +20,18 @@ export function ForecastChart({
   forecast,
   currency,
   negativeDate,
+  horizonMonths,
 }: {
   history: { date: string; value: number }[];
   forecast: { date: string; value: number }[];
   currency: string;
   negativeDate: string | null;
+  horizonMonths: number;
 }) {
   const width = 720;
-  const height = 260;
-  const pad = { top: 18, right: 14, bottom: 26, left: 56 };
+  const height = 288;
+  // deep bottom band holds the vertical date labels; x-axis sits at its top edge
+  const pad = { top: 18, right: 14, bottom: 62, left: 56 };
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hover, setHover] = useState<number | null>(null);
 
@@ -40,13 +43,14 @@ export function ForecastChart({
     [history, forecast],
   );
 
-  const { xOf, yOf, ticks, zeroY, todayX } = useMemo(() => {
-    const values = points.map((p) => p.value);
-    const min = Math.min(0, ...values);
+  const { xOf, yOf, ticks, todayX } = useMemo(() => {
+    // floor the domain at zero: a negative projected balance is meaningless here,
+    // so the zero line becomes the bottom axis (merged with the date axis)
+    const values = points.map((p) => Math.max(0, p.value));
+    const yLo = 0;
     const max = Math.max(...values, 1);
-    const spread = max - min || 1;
-    const yLo = min - spread * 0.06;
-    const yHi = max + spread * 0.06;
+    const yHi = max * 1.06;
+    const spread = yHi - yLo;
     const xOf = (index: number) =>
       pad.left + (index / Math.max(points.length - 1, 1)) * (width - pad.left - pad.right);
     const yOf = (value: number) =>
@@ -58,16 +62,67 @@ export function ForecastChart({
       xOf,
       yOf,
       ticks,
-      zeroY: min < 0 ? yOf(0) : null,
       todayX: history.length > 0 ? xOf(history.length - 1) : null,
     };
   }, [points, history.length]);
+
+  /** Balance clamped at the zero floor — the chart never dips below the x-axis. */
+  const clampedY = (value: number) => yOf(Math.max(0, value));
+
+  // Vertical x-axis date labels; the interval scales with the horizon so they
+  // never crowd: 3 mo → weekly, 6 mo → biweekly, 12 mo → monthly, 24 mo → bimonthly.
+  const dateTicks = useMemo(() => {
+    if (points.length < 2) return [];
+    const parse = (iso: string) => {
+      const [y, m, d] = iso.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+    const first = parse(points[0].date);
+    const last = parse(points[points.length - 1].date);
+    const dayMs = 86_400_000;
+    const spec =
+      horizonMonths <= 3
+        ? { mode: 'days' as const, interval: 7 }
+        : horizonMonths <= 6
+          ? { mode: 'days' as const, interval: 14 }
+          : horizonMonths <= 12
+            ? { mode: 'months' as const, interval: 1 }
+            : { mode: 'months' as const, interval: 2 };
+
+    const raw: { index: number; date: Date }[] = [];
+    if (spec.mode === 'days') {
+      // points are daily-contiguous, so the array index is the day offset
+      for (let i = 0; i < points.length; i += spec.interval) {
+        raw.push({ index: i, date: parse(points[i].date) });
+      }
+    } else {
+      // align to calendar months divisible by the step (e.g. step 2 → Jan/Mar/May…)
+      let mi = Math.ceil((first.getFullYear() * 12 + first.getMonth()) / spec.interval) * spec.interval;
+      for (; ; mi += spec.interval) {
+        const d = new Date(Math.floor(mi / 12), mi % 12, 1);
+        if (d > last) break;
+        if (d < first) continue;
+        raw.push({ index: Math.round((d.getTime() - first.getTime()) / dayMs), date: d });
+      }
+    }
+
+    let prevYear: number | null = null;
+    return raw.map(({ index, date }) => {
+      const mon = date.toLocaleDateString('en-NZ', { month: 'short' });
+      const base = spec.mode === 'days' ? `${date.getDate()} ${mon}` : mon;
+      const year = date.getFullYear();
+      // append the year only where it changes (or on the first tick), to keep labels short
+      const label = prevYear === null || year !== prevYear ? `${base} '${String(year).slice(2)}` : base;
+      prevYear = year;
+      return { index, label };
+    });
+  }, [points, horizonMonths]);
 
   const path = (phase: 'history' | 'forecast') => {
     const parts: string[] = [];
     points.forEach((point, index) => {
       if (point.phase !== phase && !(phase === 'forecast' && index === history.length - 1)) return;
-      parts.push(`${parts.length === 0 ? 'M' : 'L'}${xOf(index).toFixed(1)},${yOf(point.value).toFixed(1)}`);
+      parts.push(`${parts.length === 0 ? 'M' : 'L'}${xOf(index).toFixed(1)},${clampedY(point.value).toFixed(1)}`);
     });
     return parts.join(' ');
   };
@@ -120,17 +175,6 @@ export function ForecastChart({
             </text>
           </g>
         ))}
-        {zeroY != null && (
-          <line
-            x1={pad.left}
-            x2={width - pad.right}
-            y1={zeroY}
-            y2={zeroY}
-            stroke="var(--muted)"
-            strokeWidth="1"
-            strokeDasharray="2 3"
-          />
-        )}
         {/* today divider */}
         {todayX != null && (
           <g>
@@ -157,11 +201,43 @@ export function ForecastChart({
           strokeWidth="2"
           strokeDasharray="5 4"
         />
-        {/* direct phase labels */}
+        {/* x-axis pinned to the bottom (never rides up with a negative forecast) */}
+        <line
+          x1={pad.left}
+          x2={width - pad.right}
+          y1={height - pad.bottom}
+          y2={height - pad.bottom}
+          stroke="var(--border)"
+          strokeWidth="1"
+        />
+        {/* vertical date labels — interval scales with the horizon so they never collide */}
+        {dateTicks.map((tick) => (
+          <g key={tick.index}>
+            <line
+              x1={xOf(tick.index)}
+              x2={xOf(tick.index)}
+              y1={height - pad.bottom}
+              y2={height - pad.bottom + 4}
+              stroke="var(--border)"
+              strokeWidth="1"
+            />
+            <text
+              x={xOf(tick.index)}
+              y={height - pad.bottom + 8}
+              textAnchor="end"
+              fontSize="9.5"
+              fill="var(--muted)"
+              transform={`rotate(-90 ${xOf(tick.index).toFixed(1)} ${height - pad.bottom + 8})`}
+            >
+              {tick.label}
+            </text>
+          </g>
+        ))}
+        {/* direct phase labels — kept clear of the date axis at the top */}
         {history.length > 2 && (
           <text
             x={xOf(Math.floor(history.length / 2))}
-            y={height - pad.bottom + 16}
+            y={pad.top - 5}
             textAnchor="middle"
             fontSize="10.5"
             fill="var(--muted)"
@@ -172,7 +248,7 @@ export function ForecastChart({
         {forecast.length > 2 && (
           <text
             x={xOf(history.length + Math.floor(forecast.length / 2))}
-            y={height - pad.bottom + 16}
+            y={pad.top - 5}
             textAnchor="middle"
             fontSize="10.5"
             fill="var(--muted)"
@@ -185,7 +261,7 @@ export function ForecastChart({
           <g>
             <circle
               cx={xOf(negativeIndex)}
-              cy={yOf(points[negativeIndex].value)}
+              cy={clampedY(points[negativeIndex].value)}
               r="4.5"
               fill="var(--expense)"
               stroke="var(--panel)"
@@ -193,7 +269,7 @@ export function ForecastChart({
             />
             <text
               x={xOf(negativeIndex)}
-              y={yOf(points[negativeIndex].value) - 9}
+              y={clampedY(points[negativeIndex].value) - 9}
               textAnchor="middle"
               fontSize="10"
               fill="var(--expense)"
@@ -215,7 +291,7 @@ export function ForecastChart({
             />
             <circle
               cx={xOf(hover)}
-              cy={yOf(hovered.value)}
+              cy={clampedY(hovered.value)}
               r="4"
               fill={hovered.phase === 'history' ? 'var(--chart-history)' : 'var(--chart-forecast)'}
               stroke="var(--panel)"
