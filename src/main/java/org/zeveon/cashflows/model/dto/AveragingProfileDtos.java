@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.zeveon.cashflows.entity.enums.AveragingGranularity;
+import org.zeveon.cashflows.entity.enums.AveragingWindowMode;
 import org.zeveon.cashflows.entity.enums.CategoryFilterMode;
 
 import java.math.BigDecimal;
@@ -26,7 +27,8 @@ public final class AveragingProfileDtos {
     public record ProfileDto(
             Long id, String name,
             Long accountId, String accountName, String accountCurrency,
-            AveragingGranularity granularity, LocalDate periodFrom, LocalDate periodTo,
+            AveragingGranularity granularity,
+            AveragingWindowMode windowMode, LocalDate periodFrom, LocalDate periodTo, Integer rollingDays,
             CategoryFilterMode categoryFilterMode, List<Long> categoryIds,
             BigDecimal manualOverride, boolean archived,
             ComputedValue computed, BigDecimal effectiveValue) {
@@ -36,8 +38,10 @@ public final class AveragingProfileDtos {
             @NotBlank @Size(max = 255) String name,
             @NotNull Long accountId,
             @NotNull AveragingGranularity granularity,
-            @NotNull LocalDate periodFrom,
-            @NotNull LocalDate periodTo,
+            @NotNull AveragingWindowMode windowMode,
+            LocalDate periodFrom,
+            LocalDate periodTo,
+            Integer rollingDays,
             @NotNull CategoryFilterMode categoryFilterMode,
             List<Long> categoryIds,
             BigDecimal manualOverride,
@@ -47,8 +51,10 @@ public final class AveragingProfileDtos {
     public record PreviewRequest(
             @NotNull Long accountId,
             @NotNull AveragingGranularity granularity,
-            @NotNull LocalDate periodFrom,
-            @NotNull LocalDate periodTo,
+            @NotNull AveragingWindowMode windowMode,
+            LocalDate periodFrom,
+            LocalDate periodTo,
+            Integer rollingDays,
             @NotNull CategoryFilterMode categoryFilterMode,
             List<Long> categoryIds) {
     }

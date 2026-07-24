@@ -428,16 +428,16 @@ export async function importDebtSchedule(
 }
 
 // --- averaging profiles
-export const getAveragingProfiles = () =>
-  request<AveragingProfile[]>('GET', '/api/averaging-profiles');
-export const createAveragingProfile = (body: unknown) =>
-  request<AveragingProfile>('POST', '/api/averaging-profiles', body);
-export const updateAveragingProfile = (id: number, body: unknown) =>
-  request<AveragingProfile>('PUT', `/api/averaging-profiles/${id}`, body);
+export const getAveragingProfiles = (today: string) =>
+  request<AveragingProfile[]>('GET', `/api/averaging-profiles${query({ today })}`);
+export const createAveragingProfile = (body: unknown, today: string) =>
+  request<AveragingProfile>('POST', `/api/averaging-profiles${query({ today })}`, body);
+export const updateAveragingProfile = (id: number, body: unknown, today: string) =>
+  request<AveragingProfile>('PUT', `/api/averaging-profiles/${id}${query({ today })}`, body);
 export const deleteAveragingProfile = (id: number) =>
   request<void>('DELETE', `/api/averaging-profiles/${id}`);
-export const previewAveragingProfile = (body: unknown) =>
-  request<ComputedValue>('POST', '/api/averaging-profiles/preview', body);
+export const previewAveragingProfile = (body: unknown, today: string) =>
+  request<ComputedValue>('POST', `/api/averaging-profiles/preview${query({ today })}`, body);
 
 // --- forecast
 export const getForecast = (today: string, horizonMonths: number, currency: string) =>

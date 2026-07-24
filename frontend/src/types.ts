@@ -248,9 +248,10 @@ export interface ReconciliationHistoryEntry {
 // --- stage 3: recurring, planned, averaging, forecast ---
 
 export type ScheduleFrequency = 'MONTHLY' | 'WEEKLY' | 'EVERY_N_DAYS';
-export type AmountStrategy = 'FIXED' | 'AVERAGE' | 'AVERAGE_PERIOD';
+export type AmountStrategy = 'FIXED' | 'AVERAGE';
 export type PlannedStatus = 'PENDING' | 'CONFIRMED' | 'DISMISSED';
 export type AveragingGranularity = 'DAILY' | 'MONTHLY';
+export type AveragingWindowMode = 'FIXED' | 'ROLLING';
 export type CategoryFilterMode = 'INCLUDE' | 'EXCLUDE';
 
 export interface RecurringRule {
@@ -358,8 +359,10 @@ export interface AveragingProfile {
   accountName: string;
   accountCurrency: string;
   granularity: AveragingGranularity;
-  periodFrom: string;
-  periodTo: string;
+  windowMode: AveragingWindowMode;
+  periodFrom: string | null;
+  periodTo: string | null;
+  rollingDays: number | null;
   categoryFilterMode: CategoryFilterMode;
   categoryIds: number[];
   manualOverride: number | null;

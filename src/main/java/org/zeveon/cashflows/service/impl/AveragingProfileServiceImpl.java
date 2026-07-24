@@ -8,6 +8,7 @@ import org.zeveon.cashflows.entity.AveragingProfile;
 import org.zeveon.cashflows.entity.Category;
 import org.zeveon.cashflows.entity.Transaction;
 import org.zeveon.cashflows.entity.enums.AveragingGranularity;
+import org.zeveon.cashflows.entity.enums.AveragingWindowMode;
 import org.zeveon.cashflows.entity.enums.CategoryFilterMode;
 import org.zeveon.cashflows.entity.enums.TransactionType;
 import org.zeveon.cashflows.exception.NotFoundException;
@@ -32,10 +33,12 @@ import java.util.stream.Collectors;
 
 /**
  * Average-spend computation (FR-8.x): EXPENSE transactions across ALL accounts
- * over the period, category filter INCLUDE/EXCLUDE, system categories excluded
+ * over the window, category filter INCLUDE/EXCLUDE, system categories excluded
  * unconditionally, each amount converted into the profile account's currency at
- * its own-date rate. DAILY = total/days; MONTHLY = total/(days/30.4375) — a
- * deterministic divisor independent of month-boundary alignment.
+ * its own-date rate. The window is a FIXED calendar range or a ROLLING last-N-days
+ * span ending at "today" (the client's date). DAILY = total/days; MONTHLY =
+ * total/(days/30.4375) — a deterministic divisor independent of month-boundary
+ * alignment.
  *
  * @author Stanislav Vafin
  */
@@ -44,6 +47,7 @@ import java.util.stream.Collectors;
 public class AveragingProfileServiceImpl implements AveragingProfileService {
 
     private static final BigDecimal DAYS_PER_MONTH = new BigDecimal("30.4375");
+    private static final int DEFAULT_ROLLING_DAYS = 30;
 
     private final AveragingProfileRepository profileRepository;
     private final AccountRepository accountRepository;
@@ -53,28 +57,28 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProfileDto> findAll() {
+    public List<ProfileDto> findAll(LocalDate today) {
         return profileRepository.findAll().stream()
                 .sorted((a, b) -> Long.compare(a.getId(), b.getId()))
-                .map(this::toDto)
+                .map(profile -> toDto(profile, today))
                 .toList();
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ProfileDto create(ProfileRequest request) {
+    public ProfileDto create(ProfileRequest request, LocalDate today) {
         var profile = new AveragingProfile();
         apply(profile, request);
-        return toDto(profileRepository.save(profile));
+        return toDto(profileRepository.save(profile), today);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public ProfileDto update(Long id, ProfileRequest request) {
+    public ProfileDto update(Long id, ProfileRequest request, LocalDate today) {
         var profile = profileRepository.findById(id)
                 .orElseThrow(() -> NotFoundException.of("Averaging profile", id));
         apply(profile, request);
-        return toDto(profile);
+        return toDto(profile, today);
     }
 
     @Override
@@ -86,24 +90,56 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
 
     @Override
     @Transactional(readOnly = true)
-    public ComputedValue preview(PreviewRequest request) {
+    public ComputedValue preview(PreviewRequest request, LocalDate today) {
         var account = accountRepository.findById(request.accountId())
                 .orElseThrow(() -> NotFoundException.of("Account", request.accountId()));
-        return compute(account, request.granularity(), request.periodFrom(), request.periodTo(),
+        validateWindow(request.windowMode(), request.periodFrom(), request.periodTo(),
+                request.rollingDays());
+        var window = resolveWindow(request.windowMode(), request.periodFrom(), request.periodTo(),
+                request.rollingDays(), today);
+        return compute(account, request.granularity(), window.from(), window.to(),
                 request.categoryFilterMode(),
                 request.categoryIds() == null ? Set.of() : Set.copyOf(request.categoryIds()));
     }
 
-    /** Used by the forecast as well. */
+    /** Used by the forecast as well; {@code today} anchors a ROLLING window. */
     @Transactional(readOnly = true)
-    public ComputedValue computeFor(AveragingProfile profile) {
+    public ComputedValue computeFor(AveragingProfile profile, LocalDate today) {
+        var window = resolveWindow(profile.getWindowMode(), profile.getPeriodFrom(),
+                profile.getPeriodTo(), profile.getRollingDays(), today);
         return compute(profile.getAccount(), profile.getGranularity(),
-                profile.getPeriodFrom(), profile.getPeriodTo(), profile.getCategoryFilterMode(),
+                window.from(), window.to(), profile.getCategoryFilterMode(),
                 profile.getCategories().stream().map(Category::getId).collect(Collectors.toSet()));
     }
 
     public static BigDecimal effectiveValue(AveragingProfile profile, ComputedValue computed) {
         return profile.getManualOverride() != null ? profile.getManualOverride() : computed.value();
+    }
+
+    /** Resolves the concrete [from, to] window: FIXED bounds, or last-N-days ending today. */
+    private static Window resolveWindow(AveragingWindowMode mode, LocalDate periodFrom,
+                                        LocalDate periodTo, Integer rollingDays, LocalDate today) {
+        if (mode == AveragingWindowMode.ROLLING) {
+            var days = rollingDays == null ? DEFAULT_ROLLING_DAYS : rollingDays;
+            return new Window(today.minusDays(days - 1L), today);
+        }
+        return new Window(periodFrom, periodTo);
+    }
+
+    private static void validateWindow(AveragingWindowMode mode, LocalDate periodFrom,
+                                       LocalDate periodTo, Integer rollingDays) {
+        if (mode == AveragingWindowMode.ROLLING) {
+            if (rollingDays == null || rollingDays < 1) {
+                throw new IllegalArgumentException("ROLLING window needs rollingDays >= 1");
+            }
+        } else {
+            if (periodFrom == null || periodTo == null) {
+                throw new IllegalArgumentException("FIXED window needs periodFrom and periodTo");
+            }
+            if (periodTo.isBefore(periodFrom)) {
+                throw new IllegalArgumentException("periodTo is before periodFrom");
+            }
+        }
     }
 
     private ComputedValue compute(Account account, AveragingGranularity granularity,
@@ -162,15 +198,22 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
     }
 
     private void apply(AveragingProfile profile, ProfileRequest request) {
-        if (request.periodTo().isBefore(request.periodFrom())) {
-            throw new IllegalArgumentException("periodTo is before periodFrom");
-        }
+        validateWindow(request.windowMode(), request.periodFrom(), request.periodTo(),
+                request.rollingDays());
         profile.setName(request.name());
         profile.setAccount(accountRepository.findById(request.accountId())
                 .orElseThrow(() -> NotFoundException.of("Account", request.accountId())));
         profile.setGranularity(request.granularity());
-        profile.setPeriodFrom(request.periodFrom());
-        profile.setPeriodTo(request.periodTo());
+        profile.setWindowMode(request.windowMode());
+        if (request.windowMode() == AveragingWindowMode.ROLLING) {
+            profile.setRollingDays(request.rollingDays());
+            profile.setPeriodFrom(null);
+            profile.setPeriodTo(null);
+        } else {
+            profile.setPeriodFrom(request.periodFrom());
+            profile.setPeriodTo(request.periodTo());
+            profile.setRollingDays(null);
+        }
         profile.setCategoryFilterMode(request.categoryFilterMode());
         var categories = new LinkedHashSet<Category>();
         for (var categoryId : request.categoryIds() == null ? List.<Long>of() : request.categoryIds()) {
@@ -184,15 +227,20 @@ public class AveragingProfileServiceImpl implements AveragingProfileService {
         }
     }
 
-    private ProfileDto toDto(AveragingProfile profile) {
-        var computed = computeFor(profile);
+    private ProfileDto toDto(AveragingProfile profile, LocalDate today) {
+        var computed = computeFor(profile, today);
         return new ProfileDto(profile.getId(), profile.getName(),
                 profile.getAccount().getId(), profile.getAccount().getName(),
                 profile.getAccount().getCurrency(),
-                profile.getGranularity(), profile.getPeriodFrom(), profile.getPeriodTo(),
+                profile.getGranularity(),
+                profile.getWindowMode(), profile.getPeriodFrom(), profile.getPeriodTo(),
+                profile.getRollingDays(),
                 profile.getCategoryFilterMode(),
                 profile.getCategories().stream().map(Category::getId).sorted().toList(),
                 profile.getManualOverride(), profile.isArchived(),
                 computed, effectiveValue(profile, computed));
+    }
+
+    private record Window(LocalDate from, LocalDate to) {
     }
 }

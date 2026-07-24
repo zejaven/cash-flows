@@ -50,7 +50,7 @@ export function DashboardPage() {
     getTransactions({ needsReview: true }, 0, 1)
       .then((page) => setReviewCount(page.totalItems))
       .catch(() => setReviewCount(null));
-    getAveragingProfiles()
+    getAveragingProfiles(day)
       .then((list) => setProfiles(list.filter((profile) => !profile.archived)))
       .catch(() => setProfiles([]));
     getForecast(day, 12, displayCurrency === 'ORIGINAL' ? 'NZD' : displayCurrency)

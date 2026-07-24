@@ -197,12 +197,14 @@ class StatsServiceIntegrationTest {
         }
         var daily = profileRepository.save(AveragingProfile.builder()
                 .name("Daily").account(nzd).granularity(AveragingGranularity.DAILY)
+                .windowMode(AveragingWindowMode.FIXED)
                 .periodFrom(LocalDate.of(2026, 6, 1)).periodTo(LocalDate.of(2026, 6, 10))
                 .categoryFilterMode(CategoryFilterMode.INCLUDE).archived(false).build());
         daily.getCategories().add(groceries);
         profileRepository.save(daily);
         var monthly = profileRepository.save(AveragingProfile.builder()
                 .name("Utilities").account(nzd).granularity(AveragingGranularity.MONTHLY)
+                .windowMode(AveragingWindowMode.FIXED)
                 .periodFrom(LocalDate.of(2026, 6, 1)).periodTo(LocalDate.of(2026, 6, 30))
                 .categoryFilterMode(CategoryFilterMode.INCLUDE)
                 .manualOverride(new BigDecimal("90"))

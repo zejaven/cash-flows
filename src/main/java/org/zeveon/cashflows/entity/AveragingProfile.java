@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 import org.zeveon.cashflows.entity.enums.AveragingGranularity;
+import org.zeveon.cashflows.entity.enums.AveragingWindowMode;
 import org.zeveon.cashflows.entity.enums.CategoryFilterMode;
 
 import java.math.BigDecimal;
@@ -18,11 +19,13 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 /**
- * Average-spend profile (FR-8.x): computes an average from history over a period
+ * Average-spend profile (FR-8.x): computes an average from history over a window
  * with a category filter and feeds the forecast as a daily/monthly virtual
- * expense on {@link #account}. Always computed on the fly (FR-8.3);
- * {@link #manualOverride} wins when set (FR-8.4). System categories (Correction)
- * are excluded unconditionally.
+ * expense on {@link #account}. The window is either a {@code FIXED} calendar range
+ * ({@link #periodFrom}/{@link #periodTo}) or a {@code ROLLING} last-N-days span
+ * ({@link #rollingDays}) resolved against "today" — see {@link AveragingWindowMode}.
+ * Always computed on the fly (FR-8.3); {@link #manualOverride} wins when set
+ * (FR-8.4). System categories (Correction) are excluded unconditionally.
  *
  * @author Stanislav Vafin
  */
@@ -51,11 +54,20 @@ public class AveragingProfile {
     @Column(name = "granularity", nullable = false)
     private AveragingGranularity granularity;
 
-    @Column(name = "period_from", nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "window_mode", nullable = false)
+    private AveragingWindowMode windowMode;
+
+    /** FIXED window bounds; null when {@link #windowMode} is ROLLING. */
+    @Column(name = "period_from")
     private LocalDate periodFrom;
 
-    @Column(name = "period_to", nullable = false)
+    @Column(name = "period_to")
     private LocalDate periodTo;
+
+    /** ROLLING window length in days (ending today); null when windowMode is FIXED. */
+    @Column(name = "rolling_days")
+    private Integer rollingDays;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "category_filter_mode", nullable = false)

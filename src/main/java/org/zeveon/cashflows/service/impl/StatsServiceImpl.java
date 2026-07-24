@@ -110,8 +110,9 @@ public class StatsServiceImpl implements StatsService {
         var firstOfMonths = countFirstOfMonths(from, to);
         var forecast = BigDecimal.ZERO;
         for (var profile : profileRepository.findByArchivedFalseOrderByIdAsc()) {
+            // anchor a ROLLING window at the end of the compared period
             var value = AveragingProfileServiceImpl.effectiveValue(profile,
-                    averagingProfileService.computeFor(profile));
+                    averagingProfileService.computeFor(profile, to));
             if (value == null || value.signum() == 0) {
                 continue;
             }

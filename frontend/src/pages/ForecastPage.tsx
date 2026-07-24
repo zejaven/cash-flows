@@ -21,6 +21,7 @@ import type {
   Account,
   AveragingGranularity,
   AveragingProfile,
+  AveragingWindowMode,
   Category,
   CategoryFilterMode,
   ComputedValue,
@@ -204,7 +205,7 @@ function ProfilesView() {
   const { toast } = useToast();
 
   const reload = useCallback(() => {
-    getAveragingProfiles()
+    getAveragingProfiles(today())
       .then(setProfiles)
       .catch((e) => toast(apiErrorMessage(e), true));
   }, [toast]);
@@ -245,8 +246,10 @@ function ProfilesView() {
                 {profile.archived && <span className="badge badge-review"> archived</span>}
               </div>
               <div className="muted" style={{ fontSize: 12.5 }}>
-                {formatDate(profile.periodFrom)} – {formatDate(profile.periodTo)} ·{' '}
-                {profile.categoryFilterMode === 'INCLUDE' ? 'only selected' : 'all except selected'}{' '}
+                {profile.windowMode === 'ROLLING'
+                  ? `last ${profile.rollingDays} days`
+                  : `${formatDate(profile.periodFrom ?? '')} – ${formatDate(profile.periodTo ?? '')}`}{' '}
+                · {profile.categoryFilterMode === 'INCLUDE' ? 'only selected' : 'all except selected'}{' '}
                 · {profile.accountName}
               </div>
             </div>
@@ -299,8 +302,12 @@ function ProfileForm({
   const [granularity, setGranularity] = useState<AveragingGranularity>(
     existing?.granularity ?? 'DAILY',
   );
+  const [windowMode, setWindowMode] = useState<AveragingWindowMode>(
+    existing?.windowMode ?? 'FIXED',
+  );
   const [periodFrom, setPeriodFrom] = useState(existing?.periodFrom ?? '');
   const [periodTo, setPeriodTo] = useState(existing?.periodTo ?? today());
+  const [rollingDays, setRollingDays] = useState(String(existing?.rollingDays ?? 30));
   const [mode, setMode] = useState<CategoryFilterMode>(existing?.categoryFilterMode ?? 'INCLUDE');
   const [selected, setSelected] = useState<Set<number>>(new Set(existing?.categoryIds ?? []));
   const [override, setOverride] = useState(
@@ -317,26 +324,34 @@ function ProfileForm({
       .catch(() => {});
   }, []);
 
+  const windowReady =
+    !!accountId && (windowMode === 'ROLLING' ? Number(rollingDays) >= 1 : !!periodFrom && !!periodTo);
+
   // live "Computed result" (mockup 4a)
   useEffect(() => {
-    if (!accountId || !periodFrom || !periodTo) {
+    if (!windowReady) {
       setComputed(null);
       return;
     }
     const timer = setTimeout(() => {
-      previewAveragingProfile({
-        accountId: Number(accountId),
-        granularity,
-        periodFrom,
-        periodTo,
-        categoryFilterMode: mode,
-        categoryIds: [...selected],
-      })
+      previewAveragingProfile(
+        {
+          accountId: Number(accountId),
+          granularity,
+          windowMode,
+          periodFrom: windowMode === 'FIXED' ? periodFrom : null,
+          periodTo: windowMode === 'FIXED' ? periodTo : null,
+          rollingDays: windowMode === 'ROLLING' ? Number(rollingDays) : null,
+          categoryFilterMode: mode,
+          categoryIds: [...selected],
+        },
+        today(),
+      )
         .then(setComputed)
         .catch(() => setComputed(null));
     }, 350);
     return () => clearTimeout(timer);
-  }, [accountId, granularity, periodFrom, periodTo, mode, selected]);
+  }, [accountId, granularity, windowMode, periodFrom, periodTo, rollingDays, mode, selected, windowReady]);
 
   const toggleCategory = (id: number) =>
     setSelected((current) => {
@@ -348,22 +363,24 @@ function ProfileForm({
 
   async function submit(e: FormEvent) {
     e.preventDefault();
-    if (!accountId || !periodFrom || !periodTo) return;
+    if (!windowReady) return;
     setBusy(true);
     try {
       const body = {
         name,
         accountId: Number(accountId),
         granularity,
-        periodFrom,
-        periodTo,
+        windowMode,
+        periodFrom: windowMode === 'FIXED' ? periodFrom : null,
+        periodTo: windowMode === 'FIXED' ? periodTo : null,
+        rollingDays: windowMode === 'ROLLING' ? Number(rollingDays) : null,
         categoryFilterMode: mode,
         categoryIds: [...selected],
         manualOverride: override ? Number(override) : null,
         archived: existing?.archived ?? false,
       };
-      if (existing) await updateAveragingProfile(existing.id, body);
-      else await createAveragingProfile(body);
+      if (existing) await updateAveragingProfile(existing.id, body, today());
+      else await createAveragingProfile(body, today());
       onSaved();
       onClose();
     } catch (err) {
@@ -388,28 +405,64 @@ function ProfileForm({
             required
           />
         </div>
-        <div className="form-grid">
-          <div className="form-row">
-            <label htmlFor="pf-from">Period from</label>
-            <input
-              id="pf-from"
-              type="date"
-              value={periodFrom}
-              onChange={(e) => setPeriodFrom(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-row">
-            <label htmlFor="pf-to">Period to</label>
-            <input
-              id="pf-to"
-              type="date"
-              value={periodTo}
-              onChange={(e) => setPeriodTo(e.target.value)}
-              required
-            />
-          </div>
+        <div className="form-row" style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className={windowMode === 'FIXED' ? 'btn' : 'btn-ghost'}
+            style={{ flex: 1 }}
+            onClick={() => setWindowMode('FIXED')}
+          >
+            Fixed period
+          </button>
+          <button
+            type="button"
+            className={windowMode === 'ROLLING' ? 'btn' : 'btn-ghost'}
+            style={{ flex: 1 }}
+            onClick={() => setWindowMode('ROLLING')}
+          >
+            Rolling window
+          </button>
         </div>
+        {windowMode === 'FIXED' ? (
+          <div className="form-grid">
+            <div className="form-row">
+              <label htmlFor="pf-from">Period from</label>
+              <input
+                id="pf-from"
+                type="date"
+                value={periodFrom}
+                onChange={(e) => setPeriodFrom(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-row">
+              <label htmlFor="pf-to">Period to</label>
+              <input
+                id="pf-to"
+                type="date"
+                value={periodTo}
+                onChange={(e) => setPeriodTo(e.target.value)}
+                required
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="form-row">
+            <label htmlFor="pf-rolling">Last N days (ending today)</label>
+            <input
+              id="pf-rolling"
+              type="number"
+              min="1"
+              value={rollingDays}
+              onChange={(e) => setRollingDays(e.target.value)}
+              required
+            />
+            <div className="muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+              Always averages the most recent {rollingDays || 'N'} days — no need to edit dates as
+              time passes.
+            </div>
+          </div>
+        )}
         <div className="form-row" style={{ display: 'flex', gap: 8 }}>
           <button
             type="button"
@@ -508,7 +561,7 @@ function ProfileForm({
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn" disabled={busy || !accountId || !periodFrom}>
+          <button className="btn" disabled={busy || !windowReady}>
             Save profile
           </button>
         </div>

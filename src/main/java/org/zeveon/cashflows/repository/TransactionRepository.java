@@ -46,13 +46,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long>,
             TransactionType type, Long categoryId, Pageable pageable);
 
     /**
-     * Actual payments of a category within [from, to] inclusive — feed of the
-     * AVERAGE_PERIOD amount strategy (FR-7.2): total spend spread over the window.
-     */
-    List<Transaction> findByTypeAndCategoryIdAndTxnDateBetween(
-            TransactionType type, Long categoryId, LocalDate from, LocalDate to);
-
-    /**
      * Signed per-day balance deltas per account since a date (both transaction
      * sides, each respecting its account's start_date) — the history series of
      * the forecast chart, computed in one query.

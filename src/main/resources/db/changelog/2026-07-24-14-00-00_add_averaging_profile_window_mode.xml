@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <changeSet id="2026-07-24-14-00-00_add_averaging_profile_window_mode" author="zejaven">
+        <!-- existing profiles keep their calendar range -->
+        <addColumn tableName="averaging_profile" schemaName="cashflow">
+            <column name="window_mode" type="varchar(16)" defaultValue="FIXED">
+                <constraints nullable="false"/>
+            </column>
+            <column name="rolling_days" type="int"/>
+        </addColumn>
+        <!-- ROLLING profiles have no calendar range -->
+        <dropNotNullConstraint tableName="averaging_profile" schemaName="cashflow"
+                               columnName="period_from" columnDataType="date"/>
+        <dropNotNullConstraint tableName="averaging_profile" schemaName="cashflow"
+                               columnName="period_to" columnDataType="date"/>
+        <sql>ALTER TABLE cashflow.averaging_profile ADD CONSTRAINT chk_averaging_profile_window_mode
+            CHECK (window_mode IN ('FIXED', 'ROLLING'))</sql>
+        <sql>ALTER TABLE cashflow.averaging_profile ADD CONSTRAINT chk_averaging_profile_window_shape
+            CHECK ((window_mode = 'FIXED' AND period_from IS NOT NULL AND period_to IS NOT NULL)
+                OR (window_mode = 'ROLLING' AND rolling_days IS NOT NULL AND rolling_days >= 1))</sql>
+        <rollback>
+            <sql>ALTER TABLE cashflow.averaging_profile DROP CONSTRAINT chk_averaging_profile_window_shape</sql>
+            <sql>ALTER TABLE cashflow.averaging_profile DROP CONSTRAINT chk_averaging_profile_window_mode</sql>
+            <addNotNullConstraint tableName="averaging_profile" schemaName="cashflow"
+                                  columnName="period_to" columnDataType="date"/>
+            <addNotNullConstraint tableName="averaging_profile" schemaName="cashflow"
+                                  columnName="period_from" columnDataType="date"/>
+            <dropColumn tableName="averaging_profile" schemaName="cashflow" columnName="rolling_days"/>
+            <dropColumn tableName="averaging_profile" schemaName="cashflow" columnName="window_mode"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

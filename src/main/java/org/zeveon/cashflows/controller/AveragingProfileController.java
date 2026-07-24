@@ -11,9 +11,12 @@ import org.zeveon.cashflows.model.dto.AveragingProfileDtos.ProfileDto;
 import org.zeveon.cashflows.model.dto.AveragingProfileDtos.ProfileRequest;
 import org.zeveon.cashflows.service.AveragingProfileService;
 
+import java.time.LocalDate;
 import java.util.List;
 
 /**
+ * "Today" is always the client's date (timezone rule) — it anchors ROLLING windows.
+ *
  * @author Stanislav Vafin
  */
 @RestController
@@ -24,19 +27,21 @@ public class AveragingProfileController {
     private final AveragingProfileService profileService;
 
     @GetMapping
-    public ResponseEntity<List<ProfileDto>> findAll() {
-        return ResponseEntity.ok(profileService.findAll());
+    public ResponseEntity<List<ProfileDto>> findAll(@RequestParam LocalDate today) {
+        return ResponseEntity.ok(profileService.findAll(today));
     }
 
     @PostMapping
-    public ResponseEntity<ProfileDto> create(@RequestBody @Valid ProfileRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(profileService.create(request));
+    public ResponseEntity<ProfileDto> create(@RequestBody @Valid ProfileRequest request,
+                                             @RequestParam LocalDate today) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(profileService.create(request, today));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ProfileDto> update(@PathVariable Long id,
-                                             @RequestBody @Valid ProfileRequest request) {
-        return ResponseEntity.ok(profileService.update(id, request));
+                                             @RequestBody @Valid ProfileRequest request,
+                                             @RequestParam LocalDate today) {
+        return ResponseEntity.ok(profileService.update(id, request, today));
     }
 
     @DeleteMapping("/{id}")
@@ -46,7 +51,8 @@ public class AveragingProfileController {
     }
 
     @PostMapping("/preview")
-    public ResponseEntity<ComputedValue> preview(@RequestBody @Valid PreviewRequest request) {
-        return ResponseEntity.ok(profileService.preview(request));
+    public ResponseEntity<ComputedValue> preview(@RequestBody @Valid PreviewRequest request,
+                                                 @RequestParam LocalDate today) {
+        return ResponseEntity.ok(profileService.preview(request, today));
     }
 }

@@ -170,6 +170,7 @@ class ForecastServiceIntegrationTest {
         var profile = profileRepository.save(AveragingProfile.builder()
                 .name("Groceries avg").account(nzd)
                 .granularity(AveragingGranularity.DAILY)
+                .windowMode(AveragingWindowMode.FIXED)
                 .periodFrom(LocalDate.of(2026, 7, 1)).periodTo(LocalDate.of(2026, 7, 10))
                 .categoryFilterMode(CategoryFilterMode.INCLUDE)
                 .archived(false).build());
@@ -218,6 +219,38 @@ class ForecastServiceIntegrationTest {
         // total in USD on Aug 1: 800 + 80 NZD / 2 = 840
         assertThat(response.forecast().total().get(aug1)).isEqualByComparingTo("840");
         assertThat(response.approxTotal()).isFalse();
+    }
+
+    @Test
+    @DisplayName("ROLLING profile averages the last N days ending today")
+    void rollingWindowProfile() {
+        var groceries = categoryRepository.findByNameAndType("groceries", CategoryType.EXPENSE)
+                .orElseThrow();
+        // 30 NZD/day for the 10 days ending today = 300 over the window
+        for (int i = 0; i < 10; i++) {
+            transactionRepository.save(Transaction.builder()
+                    .type(TransactionType.EXPENSE).txnDate(TODAY.minusDays(i))
+                    .account(nzd).amount(new BigDecimal("30")).category(groceries)
+                    .source(TransactionSource.MANUAL).build());
+        }
+        var profile = profileRepository.save(AveragingProfile.builder()
+                .name("Groceries rolling").account(nzd)
+                .granularity(AveragingGranularity.DAILY)
+                .windowMode(AveragingWindowMode.ROLLING).rollingDays(10)
+                .categoryFilterMode(CategoryFilterMode.INCLUDE)
+                .archived(false).build());
+        profile.getCategories().add(groceries);
+        profileRepository.save(profile);
+
+        var response = forecastService.forecast(TODAY, 1, "NZD", TODAY);
+        var nzdSeries = response.forecast().series().get(nzd.getId());
+        var dates = response.forecast().dates();
+
+        // only the daily profile drains the future: today->tomorrow delta == 300/10 = 30
+        var today = dates.indexOf(TODAY);
+        var tomorrow = dates.indexOf(TODAY.plusDays(1));
+        assertThat(nzdSeries.get(today).subtract(nzdSeries.get(tomorrow)))
+                .isEqualByComparingTo("30");
     }
 
     @Test

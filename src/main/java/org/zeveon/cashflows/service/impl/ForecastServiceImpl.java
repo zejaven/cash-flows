@@ -156,7 +156,7 @@ public class ForecastServiceImpl implements ForecastService {
                 .collect(Collectors.groupingBy(occurrence -> occurrence.getRule().getId(),
                         Collectors.mapping(RecurringOccurrence::getDueDate, Collectors.toSet())));
         for (var rule : rules) {
-            var current = amountCalculator.currentAmount(rule, today);
+            var current = amountCalculator.currentAmount(rule);
             if (current.value() == null) {
                 continue;  // no basis to forecast; the queue asks for a manual amount
             }
@@ -193,7 +193,7 @@ public class ForecastServiceImpl implements ForecastService {
             if (!accountIds.contains(profile.getAccount().getId())) {
                 continue;
             }
-            var computed = averagingProfileService.computeFor(profile);
+            var computed = averagingProfileService.computeFor(profile, today);
             var value = AveragingProfileServiceImpl.effectiveValue(profile, computed);
             if (value == null || value.signum() == 0) {
                 continue;

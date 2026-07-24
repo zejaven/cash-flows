@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+    <!-- Spending-rate estimation is consolidated into averaging profiles; the
+         AVERAGE_PERIOD recurring strategy is dropped. Any such rule falls back to
+         AVERAGE (mean of last N payments). -->
+    <changeSet id="2026-07-24-14-00-01_revert_recurring_average_period" author="zejaven">
+        <sql>UPDATE cashflow.recurring_rule SET amount_strategy = 'AVERAGE'
+            WHERE amount_strategy = 'AVERAGE_PERIOD'</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule DROP CONSTRAINT chk_recurring_rule_strategy</sql>
+        <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_strategy
+            CHECK (amount_strategy IN ('FIXED', 'AVERAGE'))</sql>
+        <rollback>
+            <sql>ALTER TABLE cashflow.recurring_rule DROP CONSTRAINT chk_recurring_rule_strategy</sql>
+            <sql>ALTER TABLE cashflow.recurring_rule ADD CONSTRAINT chk_recurring_rule_strategy
+                CHECK (amount_strategy IN ('FIXED', 'AVERAGE', 'AVERAGE_PERIOD'))</sql>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
