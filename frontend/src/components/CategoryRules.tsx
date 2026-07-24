@@ -41,10 +41,10 @@ export function CategoryRulesCard() {
   };
 
   return (
-    <div className="card">
+    <div className="card-deep">
       <h2>
         Category rules · applied on import{' '}
-        <button className="row-btn" style={{ float: 'right' }} onClick={() => setModal('new')}>
+        <button className="link-add" style={{ float: 'right' }} onClick={() => setModal('new')}>
           + Add rule
         </button>
       </h2>

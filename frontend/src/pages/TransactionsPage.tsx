@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   apiErrorMessage,
@@ -70,6 +70,8 @@ export function TransactionsPage() {
   const [items, setItems] = useState<Transaction[] | null>(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
   const [dayTotals, setDayTotals] = useState<Map<string, DayTotal>>(new Map());
   const [summary, setSummary] = useState<Summary | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -110,8 +112,12 @@ export function TransactionsPage() {
         setItems(result.items);
         setPage(0);
         setTotalPages(result.totalPages);
+        setTotalItems(result.totalItems);
       })
       .catch((e) => toast(apiErrorMessage(e), true));
+    getTransactions({ needsReview: true }, 0, 1)
+      .then((result) => setReviewCount(result.totalItems))
+      .catch(() => setReviewCount(null));
     getDayTotals(filters, displayCurrency)
       .then((result) => setDayTotals(new Map(result.days.map((d) => [d.date, d]))))
       .catch(() => setDayTotals(new Map()));
@@ -149,17 +155,25 @@ export function TransactionsPage() {
     return [...map.entries()];
   }, [items]);
 
-  const dayHeaderTotal = (date: string): string | null => {
+  /** Day subheader total: net for converted mode, expense list for ORIGINAL. */
+  const dayHeaderTotal = (date: string) => {
     const totals = dayTotals.get(date);
     if (!totals) return null;
     if (totals.byCurrency) {
-      return totals.byCurrency
+      const text = totals.byCurrency
         .filter((c) => c.expense > 0)
         .map((c) => `−${formatMoney(c.expense, c.currency)}`)
         .join(' · ');
+      return text ? <span className="amount muted">{text}</span> : null;
     }
-    if (totals.expense == null) return null;
-    return `−${formatMoney(totals.expense, displayCurrency === 'ORIGINAL' ? 'NZD' : displayCurrency)}`;
+    if (totals.expense == null && totals.income == null) return null;
+    const net = (totals.income ?? 0) - (totals.expense ?? 0);
+    const currency = displayCurrency === 'ORIGINAL' ? 'NZD' : displayCurrency;
+    return (
+      <span className={`amount ${net > 0 ? 'income' : net < 0 ? 'expense' : 'muted'}`}>
+        {formatSigned(net, currency, net >= 0 ? '+' : '-')}
+      </span>
+    );
   };
 
   const toggleSelect = (id: number) => {
@@ -171,6 +185,15 @@ export function TransactionsPage() {
     });
   };
 
+  /** One shared merchant across the whole selection -> "Create rule" is offered. */
+  const sharedPattern = useMemo(() => {
+    const picked = (items ?? []).filter((t) => selected.has(t.id));
+    const descriptions = new Set(picked.map((t) => t.description ?? ''));
+    return picked.length > 0 && descriptions.size === 1 && picked[0].description
+      ? picked[0].description
+      : null;
+  }, [items, selected]);
+
   const applyBulk = async () => {
     if (!bulkCategoryId || selected.size === 0) return;
     try {
@@ -178,15 +201,11 @@ export function TransactionsPage() {
       toast(`Category set for ${selected.size} transactions`);
       // one shared merchant just hand-categorized -> offer a rule (FR-4.7)
       const picked = (items ?? []).filter((t) => selected.has(t.id));
-      const descriptions = new Set(picked.map((t) => t.description ?? ''));
       const wasUncategorizedImport = picked.every(
         (t) => t.source === 'IMPORT' && t.categoryId == null,
       );
-      if (wasUncategorizedImport && descriptions.size === 1 && picked[0]?.description) {
-        setRuleSuggestion({
-          pattern: picked[0].description,
-          categoryId: Number(bulkCategoryId),
-        });
+      if (wasUncategorizedImport && sharedPattern) {
+        setRuleSuggestion({ pattern: sharedPattern, categoryId: Number(bulkCategoryId) });
       }
       reload();
     } catch (e) {
@@ -197,20 +216,34 @@ export function TransactionsPage() {
   const set = (patch: Partial<TransactionFilters>) =>
     setFilters((current) => ({ ...current, ...patch }));
 
+  const convHeader = displayCurrency !== 'ORIGINAL' ? `≈ ${displayCurrency}` : '';
+
   return (
     <>
       <div className="filters">
+        <button
+          className={`pill${!filters.needsReview ? ' active' : ''}`}
+          onClick={() => set({ needsReview: undefined })}
+        >
+          All
+        </button>
+        <button
+          className={`pill review${filters.needsReview ? ' on' : ''}`}
+          onClick={() => set({ needsReview: filters.needsReview ? undefined : true })}
+        >
+          Needs review
+          {reviewCount != null && reviewCount > 0 && <span className="count">{reviewCount}</span>}
+        </button>
         <input
           placeholder="🔍 Search description…"
           value={filters.q ?? ''}
           onChange={(e) => set({ q: e.target.value || undefined })}
-          style={{ flexBasis: 180 }}
         />
         <select
           value={filters.accountId ?? ''}
           onChange={(e) => set({ accountId: e.target.value ? Number(e.target.value) : undefined })}
         >
-          <option value="">Account: all</option>
+          <option value="">Account ▾</option>
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
@@ -221,7 +254,7 @@ export function TransactionsPage() {
           value={filters.categoryId ?? ''}
           onChange={(e) => set({ categoryId: e.target.value ? Number(e.target.value) : undefined })}
         >
-          <option value="">Category: all</option>
+          <option value="">Category ▾</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
@@ -234,34 +267,28 @@ export function TransactionsPage() {
             set({ type: (e.target.value || undefined) as TransactionType | undefined })
           }
         >
-          <option value="">Type: all</option>
+          <option value="">Type ▾</option>
           <option value="EXPENSE">Expense</option>
           <option value="INCOME">Income</option>
           <option value="TRANSFER">Transfer</option>
         </select>
-        <button
-          className={filters.needsReview ? 'btn' : 'btn-ghost'}
-          onClick={() => set({ needsReview: filters.needsReview ? undefined : true })}
-        >
-          Needs review
-        </button>
       </div>
 
       {summary && (
-        <div className="chip-row">
-          <span className="chip amount">
-            Day <b>−{formatMoney(summary.day.expense, summary.currency)}</b>
+        <div className="summary-strip amount">
+          <span>
+            Day <b className="expense">−{formatMoney(summary.day.expense, summary.currency)}</b>
           </span>
-          <span className="chip amount">
-            Week <b>−{formatMoney(summary.week.expense, summary.currency)}</b>
+          <span>
+            Week <b className="expense">−{formatMoney(summary.week.expense, summary.currency)}</b>
           </span>
-          <span className="chip amount">
-            Month <b>−{formatMoney(summary.month.expense, summary.currency)}</b>
+          <span>
+            Month <b className="expense">−{formatMoney(summary.month.expense, summary.currency)}</b>
           </span>
-          <span className="chip amount income">
-            Income <b>+{formatMoney(summary.month.income, summary.currency)}</b>
+          <span>
+            Income <b className="income">+{formatMoney(summary.month.income, summary.currency)}</b>
           </span>
-          {summary.incomplete && <span className="chip badge-review">partial rates</span>}
+          {summary.incomplete && <span className="badge badge-review">partial rates</span>}
         </div>
       )}
 
@@ -271,7 +298,6 @@ export function TransactionsPage() {
           <select
             value={bulkCategoryId}
             onChange={(e) => setBulkCategoryId(e.target.value ? Number(e.target.value) : '')}
-            style={{ width: 'auto', flex: 1 }}
           >
             <option value="">Set category…</option>
             {categories
@@ -282,10 +308,23 @@ export function TransactionsPage() {
                 </option>
               ))}
           </select>
-          <button className="btn" onClick={applyBulk} disabled={!bulkCategoryId}>
+          <button className="btn btn-sm" onClick={applyBulk} disabled={!bulkCategoryId}>
             Apply
           </button>
-          <button className="btn-ghost" onClick={() => setSelected(new Set())}>
+          <button
+            className="btn-ghost btn-sm"
+            disabled={!sharedPattern}
+            onClick={() =>
+              sharedPattern &&
+              setRuleSuggestion({
+                pattern: sharedPattern,
+                categoryId: bulkCategoryId ? Number(bulkCategoryId) : undefined,
+              })
+            }
+          >
+            Create rule from merchant
+          </button>
+          <button className="btn-ghost btn-sm" onClick={() => setSelected(new Set())}>
             Clear
           </button>
         </div>
@@ -296,29 +335,40 @@ export function TransactionsPage() {
       ) : items.length === 0 ? (
         <div className="placeholder">No transactions match the filters</div>
       ) : (
-        groups.map(([date, dayItems]) => (
-          <div key={date}>
-            <div className="day-header">
-              <span>{formatDayHeader(date)}</span>
-              <span className="amount">{dayHeaderTotal(date)}</span>
-            </div>
-            {dayItems.map((txn) => (
-              <TransactionRow
-                key={txn.id}
-                txn={txn}
-                selected={selected.has(txn.id)}
-                onToggle={() => toggleSelect(txn.id)}
-                onOpen={() => setEditing(txn)}
-              />
-            ))}
+        <div className="txn-table">
+          <div className="txn-head overline">
+            <span />
+            <span>Description</span>
+            <span>Category</span>
+            <span>Account</span>
+            <span className="num">Amount</span>
+            <span className="num">{convHeader}</span>
           </div>
-        ))
-      )}
-
-      {items != null && page + 1 < totalPages && (
-        <button className="btn-ghost load-more" onClick={loadMore}>
-          Load more
-        </button>
+          {groups.map(([date, dayItems]) => (
+            <Fragment key={date}>
+              <div className="txn-day overline">
+                <span>{formatDayHeader(date)}</span>
+                {dayHeaderTotal(date)}
+              </div>
+              {dayItems.map((txn) => (
+                <TransactionRow
+                  key={txn.id}
+                  txn={txn}
+                  selected={selected.has(txn.id)}
+                  onToggle={() => toggleSelect(txn.id)}
+                  onOpen={() => setEditing(txn)}
+                />
+              ))}
+            </Fragment>
+          ))}
+          <div className="txn-foot">
+            <span>
+              {totalItems} transaction{totalItems === 1 ? '' : 's'}
+              {totalPages > 1 ? ` · page ${page + 1} of ${totalPages}` : ''}
+            </span>
+            {page + 1 < totalPages && <button onClick={loadMore}>Load more ›</button>}
+          </div>
+        </div>
       )}
 
       <button className="fab" onClick={() => setAdding(true)} aria-label="Add transaction">
@@ -441,64 +491,62 @@ function TransactionRow({
   const isTransfer = txn.type === 'TRANSFER';
   const needsReview = !isTransfer && txn.categoryId == null;
   const title = txn.description || txn.categoryName || txn.type.toLowerCase();
+  const dotColor = txn.categoryColor ?? (isTransfer ? 'var(--muted)' : 'var(--review)');
+
+  const meta = needsReview
+    ? 'needs review · tap to categorize'
+    : isTransfer
+      ? `${formatMoney(txn.amount, txn.accountCurrency)} → ${formatMoney(
+          txn.counterAmount ?? 0,
+          txn.counterAccountCurrency ?? '',
+        )}`
+      : `${txn.categoryName} · ${txn.accountName}${txn.source === 'IMPORT' ? ' · imported' : ''}`;
 
   return (
-    <div className="txn-row">
-      {!isTransfer && (
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggle}
-          onClick={(e) => e.stopPropagation()}
-        />
-      )}
-      <span
-        className="cat-dot"
-        style={{ background: txn.categoryColor ?? (isTransfer ? 'var(--accent)' : 'var(--review)') }}
-      />
-      <div className="txn-info" onClick={onOpen} style={{ cursor: 'pointer' }}>
-        <div className="txn-title">{title}</div>
-        <div className="txn-meta">
-          {needsReview ? (
-            <span className="badge badge-review">needs review</span>
-          ) : isTransfer ? (
-            `${txn.accountName} → ${txn.counterAccountName}`
-          ) : (
-            `${txn.categoryName} · ${txn.accountName}`
-          )}
-          {txn.source === 'IMPORT' && <span className="badge badge-imported"> imported</span>}
+    <div
+      className={`txn-row${needsReview ? ' review' : ''}${selected ? ' selected' : ''}`}
+      onClick={onOpen}
+    >
+      <span className="txn-check" onClick={(e) => e.stopPropagation()}>
+        {!isTransfer && <input type="checkbox" checked={selected} onChange={onToggle} />}
+      </span>
+      <div className="txn-main">
+        <div className="txn-title">
+          <span className="cat-dot" style={{ background: dotColor }} />
+          {title}
+          {txn.source === 'IMPORT' && <span className="tag"> imported</span>}
           {txn.debtId != null && (
-            <span className="badge badge-imported" title={txn.debtName ?? undefined}>
+            <span className="tag" title={txn.debtName ?? undefined}>
               {' '}
               debt
             </span>
           )}
         </div>
+        <div className={`txn-meta${needsReview ? ' review-hint' : ''}`}>{meta}</div>
       </div>
-      <div className="txn-amounts" onClick={onOpen} style={{ cursor: 'pointer' }}>
+      <span
+        className={`txn-cat${needsReview ? ' review-text' : ''}`}
+        style={!needsReview && !isTransfer && txn.categoryColor ? { color: txn.categoryColor } : undefined}
+      >
+        {needsReview ? 'needs review' : isTransfer ? 'transfer' : txn.categoryName}
+      </span>
+      <span className="txn-acc">
+        {isTransfer ? `${txn.accountName} → ${txn.counterAccountName}` : txn.accountName}
+      </span>
+      <span className={`txn-amt amount${isTransfer ? ' muted' : txn.type === 'EXPENSE' ? ' expense' : ' income'}`}>
+        {isTransfer
+          ? formatMoney(txn.amount, txn.accountCurrency)
+          : formatSigned(txn.amount, txn.accountCurrency, txn.type === 'EXPENSE' ? '-' : '+')}
+      </span>
+      <span className="txn-conv amount">
         {isTransfer ? (
-          <div className="amount">
-            ⇄ {formatMoney(txn.amount, txn.accountCurrency)} →{' '}
-            {formatMoney(txn.counterAmount ?? 0, txn.counterAccountCurrency ?? '')}
-          </div>
+          '⇄'
+        ) : txn.originalCurrency ? (
+          `${formatMoney(txn.originalAmount ?? 0, txn.originalCurrency)}`
         ) : (
-          <>
-            <div className={`amount ${txn.type === 'EXPENSE' ? 'expense' : 'income'}`}>
-              {formatSigned(txn.amount, txn.accountCurrency, txn.type === 'EXPENSE' ? '-' : '+')}
-            </div>
-            <div className="txn-original">
-              {txn.originalCurrency ? (
-                <span className="amount">
-                  {formatMoney(txn.originalAmount ?? 0, txn.originalCurrency)}{' '}
-                  {txn.originalCurrency}
-                </span>
-              ) : (
-                <Approx value={txn.amount} currency={txn.accountCurrency} />
-              )}
-            </div>
-          </>
+          <Approx value={txn.amount} currency={txn.accountCurrency} />
         )}
-      </div>
+      </span>
     </div>
   );
 }

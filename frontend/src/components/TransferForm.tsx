@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   apiErrorMessage,
+  calculateRoute,
   convertToTransfer,
   createTransaction,
   deleteTransaction,
   getAccounts,
   getCategories,
+  getConversionRoutes,
   getTransactions,
   updateTransaction,
 } from '../api';
@@ -15,7 +17,7 @@ import { Modal } from './Modal';
 import { Spinner } from './Spinner';
 import { today } from '../utils/dates';
 import { convert, formatMoney } from '../utils/money';
-import type { Account, Transaction } from '../types';
+import type { Account, ConversionRoute, Transaction } from '../types';
 
 /** iso date ± days, staying in UTC so the day never shifts. */
 function shiftDate(iso: string, days: number): string {
@@ -80,6 +82,9 @@ export function TransferModal({
   const [candidates, setCandidates] = useState<Transaction[] | null>(null);
   const [counterTxnId, setCounterTxnId] = useState<number | null>(null);
   const [fee, setFee] = useState('');
+  /** «Fill from a conversion route» (mockup 5a, FR-5.5) */
+  const [routes, setRoutes] = useState<ConversionRoute[] | null>(null);
+  const [showRoutes, setShowRoutes] = useState(false);
   const [description, setDescription] = useState(
     existing?.description ?? prefill?.description ?? '',
   );
@@ -149,6 +154,48 @@ export function TransferModal({
     return ((effectiveRate - marketRate) / marketRate) * 100;
   }, [effectiveRate, marketRate]);
 
+  const toggleRoutes = () => {
+    if (!showRoutes && routes == null) {
+      getConversionRoutes()
+        .then((list) => setRoutes(list.filter((r) => !r.archived)))
+        .catch((e) => toast(apiErrorMessage(e), true));
+    }
+    setShowRoutes((current) => !current);
+  };
+
+  /** Run the picked route over the entered amount and pre-fill both sides. */
+  const applyRoute = async (routeId: number) => {
+    const route = routes?.find((r) => r.id === routeId);
+    if (!route) return;
+    const sent = Number(amountSent);
+    const received = Number(amountReceived);
+    if (!(sent > 0) && !(received > 0)) {
+      toast('Enter the amount sent (or received) first', true);
+      return;
+    }
+    try {
+      const result =
+        sent > 0
+          ? await calculateRoute(routeId, 'FORWARD', sent)
+          : await calculateRoute(routeId, 'REVERSE', received);
+      setAmountSent(String(result.amountIn));
+      setAmountReceived(String(result.amountOut));
+      if (!description) setDescription(route.name);
+      // pick matching accounts by currency when not chosen yet
+      if (fromId == null && route.fromCurrency) {
+        const match = accounts?.find((a) => a.currency === route.fromCurrency);
+        if (match) setFromId(match.id);
+      }
+      if (toId == null && route.toCurrency) {
+        const match = accounts?.find((a) => a.currency === route.toCurrency && a.id !== fromId);
+        if (match) setToId(match.id);
+      }
+      setShowRoutes(false);
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    }
+  };
+
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!fromId || !toId || !amountSent || !amountReceived) return;
@@ -208,9 +255,9 @@ export function TransferModal({
       onClose={onClose}
     >
       <form onSubmit={submit}>
-        <div className="form-grid">
-          <div className="form-row">
-            <label htmlFor="tr-from">From</label>
+        <div className="xfer-row">
+          <div className="xfer-box from">
+            <div className="lbl">From</div>
             <select
               id="tr-from"
               value={fromId ?? ''}
@@ -218,7 +265,7 @@ export function TransferModal({
               required
             >
               <option value="" disabled>
-                Choose…
+                Choose account…
               </option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>
@@ -226,9 +273,30 @@ export function TransferModal({
                 </option>
               ))}
             </select>
+            <div className="bal">
+              {from ? `balance ${formatMoney(from.balance, from.currency)}` : ' '}
+            </div>
+            <div className="amt-sep" />
+            <div className="lbl">Amount sent</div>
+            <div className="amt-line">
+              <span className="sign">−</span>
+              <input
+                id="tr-sent"
+                type="number"
+                step="any"
+                min="0"
+                inputMode="decimal"
+                placeholder="0"
+                value={amountSent}
+                onChange={(e) => setAmountSent(e.target.value)}
+                required
+              />
+              <span className="cur">{from?.currency ?? ''}</span>
+            </div>
           </div>
-          <div className="form-row">
-            <label htmlFor="tr-to">To</label>
+          <div className="arrow">→</div>
+          <div className="xfer-box to">
+            <div className="lbl">To</div>
             <select
               id="tr-to"
               value={toId ?? ''}
@@ -236,7 +304,7 @@ export function TransferModal({
               required
             >
               <option value="" disabled>
-                Choose…
+                Choose account…
               </option>
               {accounts
                 .filter((a) => a.id !== fromId)
@@ -246,50 +314,44 @@ export function TransferModal({
                   </option>
                 ))}
             </select>
-          </div>
-        </div>
-        <div className="form-grid">
-          <div className="form-row">
-            <label htmlFor="tr-sent">Amount sent{from ? ` (${from.currency})` : ''}</label>
-            <input
-              id="tr-sent"
-              type="number"
-              step="any"
-              min="0"
-              inputMode="decimal"
-              value={amountSent}
-              onChange={(e) => setAmountSent(e.target.value)}
-              required
-            />
-          </div>
-          <div className="form-row">
-            <label htmlFor="tr-received">
-              Amount received{to ? ` (${to.currency})` : ''}
-            </label>
-            <input
-              id="tr-received"
-              type="number"
-              step="any"
-              min="0"
-              inputMode="decimal"
-              value={amountReceived}
-              onChange={(e) => setAmountReceived(e.target.value)}
-              required
-            />
+            <div className="bal">
+              {to ? `balance ${formatMoney(to.balance, to.currency)}` : ' '}
+            </div>
+            <div className="amt-sep" />
+            <div className="lbl">Amount received</div>
+            <div className="amt-line">
+              <span className="sign">+</span>
+              <input
+                id="tr-received"
+                type="number"
+                step="any"
+                min="0"
+                inputMode="decimal"
+                placeholder="0"
+                value={amountReceived}
+                onChange={(e) => setAmountReceived(e.target.value)}
+                required
+              />
+              <span className="cur">{to?.currency ?? ''}</span>
+            </div>
           </div>
         </div>
         {effectiveRate != null && from && to && from.currency !== to.currency && (
-          <div className="form-row muted amount" style={{ fontSize: 13 }}>
-            Effective rate {effectiveRate.toFixed(4)} {from.currency}/{to.currency}
+          <div className="summary-strip amount" style={{ fontSize: 11.5 }}>
+            <span>
+              Effective rate{' '}
+              <b style={{ color: 'var(--text)' }}>
+                {effectiveRate.toFixed(4)} {from.currency}/{to.currency}
+              </b>
+            </span>
             {marketRate != null && lossPct != null && (
-              <>
-                {' '}
-                · market {marketRate.toFixed(4)} ·{' '}
-                <span className={lossPct > 0 ? 'expense' : 'income'}>
+              <span>
+                market {marketRate.toFixed(4)} ·{' '}
+                <b className={lossPct > 0 ? 'review-text' : 'income'}>
                   {lossPct > 0 ? '−' : '+'}
                   {Math.abs(lossPct).toFixed(1)}%
-                </span>
-              </>
+                </b>
+              </span>
             )}
           </div>
         )}
@@ -361,35 +423,72 @@ export function TransferModal({
             placeholder="Salary exchange KZT → USD"
           />
         </div>
-        <div className="form-actions">
-          {existing && (
-            <button
-              type="button"
-              className="btn-danger"
-              style={{ marginRight: 'auto' }}
-              disabled={busy}
-              onClick={async () => {
-                if (!confirm('Delete this transfer?')) return;
-                setBusy(true);
-                try {
-                  await deleteTransaction(existing.id);
-                  onSaved();
-                  onClose();
-                } catch (err) {
-                  toast(apiErrorMessage(err), true);
-                  setBusy(false);
-                }
-              }}
-            >
-              Delete
+        {showRoutes && (
+          <div className="form-row">
+            <label htmlFor="tr-route">Conversion route</label>
+            {routes == null ? (
+              <div className="muted" style={{ fontSize: 12.5 }}>Loading…</div>
+            ) : routes.length === 0 ? (
+              <div className="muted" style={{ fontSize: 12.5 }}>
+                No saved routes — create one on the Convert page first.
+              </div>
+            ) : (
+              <select
+                id="tr-route"
+                defaultValue=""
+                onChange={(e) => e.target.value && applyRoute(Number(e.target.value))}
+              >
+                <option value="" disabled>
+                  Choose route… (uses the entered amount)
+                </option>
+                {routes.map((route) => (
+                  <option key={route.id} value={route.id}>
+                    {route.name} · {route.fromCurrency} → {route.toCurrency}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+        <div className="form-actions" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            {existing ? (
+              <button
+                type="button"
+                className="btn-danger"
+                disabled={busy}
+                onClick={async () => {
+                  if (!confirm('Delete this transfer?')) return;
+                  setBusy(true);
+                  try {
+                    await deleteTransaction(existing.id);
+                    onSaved();
+                    onClose();
+                  } catch (err) {
+                    toast(apiErrorMessage(err), true);
+                    setBusy(false);
+                  }
+                }}
+              >
+                Delete
+              </button>
+            ) : (
+              <button type="button" className="link-route" onClick={toggleRoutes}>
+                Fill from a conversion route →
+              </button>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button type="button" className="btn-ghost" onClick={onClose}>
+              Cancel
             </button>
-          )}
-          <button type="button" className="btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn" disabled={busy || !fromId || !toId || !amountSent || !amountReceived}>
-            Save transfer
-          </button>
+            <button
+              className="btn"
+              disabled={busy || !fromId || !toId || !amountSent || !amountReceived}
+            >
+              Save transfer
+            </button>
+          </div>
         </div>
       </form>
     </Modal>

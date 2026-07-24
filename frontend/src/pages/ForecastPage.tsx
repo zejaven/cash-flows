@@ -137,7 +137,12 @@ function ForecastView() {
         </div>
       )}
 
-      <div className="card">
+      <div className="card-deep">
+        {series && series.history.length > 0 && (
+          <div className="chart-caption amount">
+            today: {formatMoney(series.history[series.history.length - 1].value, chartCurrency)}
+          </div>
+        )}
         {series && (
           <ForecastChart
             history={series.history}
@@ -149,7 +154,7 @@ function ForecastView() {
         )}
       </div>
 
-      <div className="card" style={{ overflowX: 'auto' }}>
+      <div className="card-deep" style={{ overflowX: 'auto' }}>
         <h2>Upcoming changes — computed live, nothing is materialized</h2>
         {data.eventDays.length === 0 ? (
           <div className="placeholder">
@@ -245,19 +250,22 @@ function ProfilesView() {
   };
 
   return (
-    <div className="card">
-      <h2>
-        Averaging profiles — feed the forecast as daily/monthly virtual expenses{' '}
-        <button className="row-btn" style={{ float: 'right' }} onClick={() => setModal('new')}>
+    <>
+      <div className="section-head">
+        <span className="overline">
+          Averaging profiles — feed the forecast as daily/monthly virtual expenses
+        </span>
+        <button className="btn btn-sm" onClick={() => setModal('new')}>
           + New profile
         </button>
-      </h2>
+      </div>
       {profiles == null ? (
         <Spinner />
       ) : profiles.length === 0 ? (
         <div className="placeholder">No profiles yet</div>
       ) : (
-        profiles.map((profile) => (
+        <div className="list-table">
+          {profiles.map((profile) => (
           <div key={profile.id} className="settings-row">
             <div className="grow">
               <div>
@@ -305,7 +313,8 @@ function ProfilesView() {
               </button>
             </div>
           </div>
-        ))
+          ))}
+        </div>
       )}
       {modal && (
         <ProfileForm
@@ -314,7 +323,7 @@ function ProfilesView() {
           onSaved={reload}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -541,7 +550,12 @@ function ProfileForm({
                 className="chip"
                 style={
                   selected.has(category.id)
-                    ? { borderColor: category.color, color: category.color, fontWeight: 700 }
+                    ? {
+                        borderColor: category.color,
+                        color: category.color,
+                        fontWeight: 700,
+                        background: `color-mix(in srgb, ${category.color} 14%, transparent)`,
+                      }
                     : undefined
                 }
                 onClick={() => toggleCategory(category.id)}

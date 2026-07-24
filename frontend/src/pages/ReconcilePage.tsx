@@ -73,79 +73,146 @@ export function ReconcilePage() {
 
   return (
     <>
-      <div className="card">
-        <h2>Balance reconciliation</h2>
-        <div className="form-row" style={{ maxWidth: 220 }}>
-          <label htmlFor="rec-date">As of</label>
-          <input id="rec-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </div>
-        <div className="muted" style={{ fontSize: 13, marginBottom: 10 }}>
-          Enter actual balances — differences become Correction transactions, excluded from stats
-          &amp; averages, included in balances.
-        </div>
-        {rows == null ? (
-          <Spinner />
-        ) : (
-          rows.map((row) => {
+      <div className="section-head">
+        <span className="overline">Balance reconciliation</span>
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            fontSize: 11.5,
+            fontWeight: 600,
+            color: 'var(--muted)',
+          }}
+        >
+          As of
+          <input
+            id="rec-date"
+            type="date"
+            className="amount"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            style={{ width: 'auto', padding: '5px 11px', fontSize: 12 }}
+          />
+        </span>
+      </div>
+      <div className="footnote" style={{ marginTop: 0, marginBottom: 12 }}>
+        Enter actual balances — differences become <b>Correction</b> transactions, excluded from
+        stats &amp; averages, included in balances.
+      </div>
+
+      {rows == null ? (
+        <Spinner />
+      ) : (
+        <div className="list-table">
+          <div className="rec-head overline">
+            <span>Account</span>
+            <span className="num">Computed</span>
+            <span className="num">Actual</span>
+            <span className="num">Difference</span>
+            <span />
+          </div>
+          {rows.map((row) => {
             const diff = diffOf(row);
+            const mismatch = diff != null && diff !== 0;
             return (
-              <div key={row.accountId} className="settings-row">
-                <div className="grow">
-                  <div>{row.name}</div>
-                  <div className="muted amount" style={{ fontSize: 12.5 }}>
-                    calc {formatMoney(row.computedBalance, row.currency)}
-                  </div>
-                </div>
-                <input
-                  type="number"
-                  step="any"
-                  inputMode="decimal"
-                  placeholder="actual…"
-                  style={{ width: 140, textAlign: 'right' }}
-                  className="amount"
-                  value={actuals.get(row.accountId) ?? ''}
-                  onChange={(e) =>
-                    setActuals((current) => {
-                      const next = new Map(current);
-                      next.set(row.accountId, e.target.value);
-                      return next;
-                    })
-                  }
-                />
+              <div key={row.accountId} className={`rec-row${mismatch ? ' mismatch' : ''}`}>
+                <span className="rec-name">{row.name}</span>
+                <span className="rec-computed amount">
+                  {formatMoney(row.computedBalance, row.currency)}
+                </span>
+                <span className="rec-actual">
+                  <input
+                    type="number"
+                    step="any"
+                    inputMode="decimal"
+                    placeholder="actual…"
+                    className="amount"
+                    value={actuals.get(row.accountId) ?? ''}
+                    onChange={(e) =>
+                      setActuals((current) => {
+                        const next = new Map(current);
+                        next.set(row.accountId, e.target.value);
+                        return next;
+                      })
+                    }
+                  />
+                </span>
                 <span
-                  className={`amount ${diff == null || diff === 0 ? 'muted' : diff < 0 ? 'expense' : 'income'}`}
-                  style={{ width: 110, textAlign: 'right' }}
+                  className={`rec-diff amount ${
+                    diff == null ? 'muted' : diff === 0 ? 'muted' : diff < 0 ? 'expense' : 'income'
+                  }`}
                 >
                   {diff == null
                     ? '—'
                     : diff === 0
-                      ? 'MATCHES ✓'
+                      ? '0.00'
                       : `${diff > 0 ? '+' : '−'}${formatMoney(Math.abs(diff), row.currency)}`}
+                </span>
+                <span className={`rec-status ${mismatch ? 'expense' : diff === 0 ? 'income' : ''}`}>
+                  {diff == null ? '' : diff === 0 ? 'MATCHES ✓' : '→ CORRECTION'}
                 </span>
               </div>
             );
-          })
-        )}
-        <div className="form-actions">
-          <button className="btn" onClick={submit} disabled={busy || corrections.length === 0}>
-            Create {corrections.length || ''} correction{corrections.length === 1 ? '' : 's'} →
-          </button>
+          })}
         </div>
+      )}
+
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 10,
+          flexWrap: 'wrap',
+          marginTop: 14,
+        }}
+      >
+        <span className="footnote" style={{ marginTop: 0 }}>
+          {corrections.length > 0 ? (
+            <>
+              {corrections.length} correction{corrections.length > 1 ? 's' : ''} will be created:{' '}
+              {corrections.map(({ row, diff }, index) => (
+                <span key={row.accountId}>
+                  {index > 0 && ' · '}
+                  <span className={`amount ${diff! < 0 ? 'expense' : 'income'}`}>
+                    {diff! < 0 ? '−' : '+'}
+                    {formatMoney(Math.abs(diff!), row.currency)}
+                  </span>{' '}
+                  {row.name}
+                </span>
+              ))}
+              <span style={{ color: 'var(--dim)' }}>
+                {' '}
+                — recategorize later if it was real spending.
+              </span>
+            </>
+          ) : (
+            'Enter an actual balance that differs from the computed one to create a correction.'
+          )}
+        </span>
+        <button className="btn" onClick={submit} disabled={busy || corrections.length === 0}>
+          Create {corrections.length || ''} correction{corrections.length === 1 ? '' : 's'} →
+        </button>
       </div>
 
       {history != null && history.length > 0 && (
-        <div className="card">
+        <div className="card-deep" style={{ marginTop: 16 }}>
           <h2>Past reconciliations</h2>
           {history.map((entry) => (
-            <div key={entry.date} className="settings-row">
-              <div className="grow">{formatDate(entry.date)}</div>
-              <span className="muted amount" style={{ fontSize: 12.5 }}>
-                {entry.corrections
-                  .map(
-                    (c) =>
-                      `${c.type === 'EXPENSE' ? '−' : '+'}${formatMoney(c.amount, c.currency)} ${c.accountName}`,
-                  )
-                  .join(' · ')}
+            <div key={entry.date} className="settings-row" style={{ fontSize: 12 }}>
+              <span className="amount muted">{formatDate(entry.date)}</span>
+              <span className="muted" style={{ flex: 1, textAlign: 'right' }}>
+                {entry.corrections.map((c, index) => (
+                  <span key={index}>
+                    {index > 0 && ' · '}
+                    <span className={`amount ${c.type === 'EXPENSE' ? 'expense' : 'income'}`}>
+                      {c.type === 'EXPENSE' ? '−' : '+'}
+                      {formatMoney(c.amount, c.currency)}
+                    </span>{' '}
+                    {c.accountName}
+                  </span>
+                ))}
               </span>
             </div>
           ))}

@@ -55,6 +55,7 @@ export function SettingsPage() {
   const [categoryModal, setCategoryModal] = useState<Category | 'new' | null>(null);
   const [counterpartyModal, setCounterpartyModal] = useState<Counterparty | 'new' | null>(null);
   const [parsers, setParsers] = useState<ParserInfo[]>([]);
+  const [tab, setTab] = useState<'general' | 'categories'>('general');
 
   const reload = useCallback(() => {
     getBanks().then(setBanks).catch((e) => toast(apiErrorMessage(e), true));
@@ -129,7 +130,24 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="filters">
+        <button
+          className={`pill${tab === 'general' ? ' active' : ''}`}
+          onClick={() => setTab('general')}
+        >
+          General
+        </button>
+        <button
+          className={`pill${tab === 'categories' ? ' active' : ''}`}
+          onClick={() => setTab('categories')}
+        >
+          Categories &amp; rules
+        </button>
+      </div>
+
+      <div className="settings-grid" style={tab !== 'general' ? { display: 'none' } : undefined}>
+      <div className="settings-col">
+      <div className="card-deep">
         <h2>Display</h2>
         <div className="settings-row">
           <div className="grow">
@@ -172,11 +190,15 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="card">
+      <GeneratorSettingsCard />
+      </div>
+
+      <div className="settings-col">
+      <div className="card-deep">
         <h2>
-          Banks{' '}
-          <button className="row-btn" style={{ float: 'right' }} onClick={() => setBankModal('new')}>
-            + Add
+          Banks &amp; parsers{' '}
+          <button className="link-add" style={{ float: 'right' }} onClick={() => setBankModal('new')}>
+            + Add bank
           </button>
         </h2>
         {banks == null ? (
@@ -185,10 +207,14 @@ export function SettingsPage() {
           banks.map((bank) => (
             <div key={bank.id} className="settings-row">
               <div className="grow">
-                <div>{bank.name}</div>
-                <div className="muted" style={{ fontSize: 12.5 }}>
-                  {bank.parserId ? `parser: ${bank.parserId}` : 'no parser'} · {bank.accountCount}{' '}
-                  accounts
+                <div style={{ fontWeight: 600 }}>{bank.name}</div>
+                <div className="muted" style={{ fontSize: 11.5 }}>
+                  {bank.parserId ? (
+                    <span className="mono">{bank.parserId}</span>
+                  ) : (
+                    <span style={{ color: 'var(--dim)' }}>no parser</span>
+                  )}{' '}
+                  · {bank.accountCount} accounts
                 </div>
               </div>
               <div className="row-actions">
@@ -204,15 +230,15 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="card">
+      <div className="card-deep">
         <h2>
           Accounts{' '}
           <button
-            className="row-btn"
+            className="link-add"
             style={{ float: 'right' }}
             onClick={() => setAccountModal('new')}
           >
-            + Add
+            + Add account
           </button>
         </h2>
         {accounts == null ? (
@@ -246,58 +272,15 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="card">
-        <h2>
-          Categories{' '}
-          <button
-            className="row-btn"
-            style={{ float: 'right' }}
-            onClick={() => setCategoryModal('new')}
-          >
-            + Add
-          </button>
-        </h2>
-        {categories == null ? (
-          <Spinner />
-        ) : (
-          categories.map((category) => (
-            <div key={category.id} className="settings-row">
-              <div className="grow">
-                <span className="color-dot" style={{ background: category.color }} />
-                {category.name}{' '}
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {category.type.toLowerCase()}
-                </span>
-                {category.system && <span className="badge badge-imported"> system</span>}
-                {category.archived && <span className="badge badge-review"> archived</span>}
-              </div>
-              <div className="row-actions">
-                <button className="row-btn" onClick={() => setCategoryModal(category)}>
-                  Edit
-                </button>
-                <button className="row-btn" onClick={() => toggleCategoryArchived(category)}>
-                  {category.archived ? 'Unarchive' : 'Archive'}
-                </button>
-                {!category.system && (
-                  <button className="row-btn" onClick={() => remove('category', category.id)}>
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="card">
+      <div className="card-deep">
         <h2>
           Counterparties · debts{' '}
           <button
-            className="row-btn"
+            className="link-add"
             style={{ float: 'right' }}
             onClick={() => setCounterpartyModal('new')}
           >
-            + Add
+            + Add counterparty
           </button>
         </h2>
         {counterparties == null ? (
@@ -332,10 +315,63 @@ export function SettingsPage() {
           ))
         )}
       </div>
+      </div>
+      </div>
 
-      <CategoryRulesCard />
-
-      <GeneratorSettingsCard />
+      <div className="settings-grid" style={tab !== 'categories' ? { display: 'none' } : undefined}>
+        <div className="settings-col">
+          <div className="card-deep">
+            <h2>
+              Categories{categories != null ? ` · ${categories.length}` : ''}{' '}
+              <button
+                className="link-add"
+                style={{ float: 'right' }}
+                onClick={() => setCategoryModal('new')}
+              >
+                + Add category
+              </button>
+            </h2>
+            {categories == null ? (
+              <Spinner />
+            ) : (
+              categories.map((category) => (
+                <div key={category.id} className="settings-row">
+                  <div className="grow">
+                    <span className="color-dot" style={{ background: category.color }} />
+                    <span style={{ fontWeight: 600 }}>{category.name}</span>
+                    {category.system && <span className="tag"> system</span>}
+                    {category.archived && <span className="badge badge-review"> archived</span>}
+                  </div>
+                  <span
+                    style={{ fontSize: 11, fontWeight: 600 }}
+                    className={
+                      category.system ? 'muted' : category.type === 'EXPENSE' ? 'expense' : 'income'
+                    }
+                  >
+                    {category.system ? 'HIDDEN' : category.type}
+                  </span>
+                  <div className="row-actions">
+                    <button className="row-btn" onClick={() => setCategoryModal(category)}>
+                      Edit
+                    </button>
+                    <button className="row-btn" onClick={() => toggleCategoryArchived(category)}>
+                      {category.archived ? 'Unarchive' : 'Archive'}
+                    </button>
+                    {!category.system && (
+                      <button className="row-btn" onClick={() => remove('category', category.id)}>
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+        <div className="settings-col">
+          <CategoryRulesCard />
+        </div>
+      </div>
 
       {bankModal && (
         <BankForm
@@ -520,7 +556,7 @@ function GeneratorSettingsCard() {
   }
 
   return (
-    <div className="card">
+    <div className="card-deep">
       <h2>AI parser generator</h2>
       {!options.enabled ? (
         <div className="placeholder">

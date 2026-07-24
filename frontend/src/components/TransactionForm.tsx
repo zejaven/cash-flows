@@ -11,6 +11,7 @@ import { useToast } from '../context/ToastContext';
 import { Modal } from './Modal';
 import { Spinner } from './Spinner';
 import { today } from '../utils/dates';
+import { formatMoney } from '../utils/money';
 import type { Account, Category, Transaction, TransactionType } from '../types';
 
 const LAST_ACCOUNT_KEY = 'lastAccountId';
@@ -182,25 +183,28 @@ export function TransactionModal({
             </button>
           </div>
         )}
-        <div className="form-grid">
-          <div className="form-row">
-            <label htmlFor="txn-amount">
-              Amount{account ? ` (${account.currency})` : ''}
-            </label>
-            <input
-              id="txn-amount"
-              type="number"
-              step="any"
-              min="0"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              autoFocus={!existing}
-              required
-            />
+        <div className="xfer-row">
+          <div className={`xfer-box ${type === 'EXPENSE' ? 'from' : 'to'}`}>
+            <div className="lbl">Amount</div>
+            <div className="amt-line">
+              <span className="sign">{type === 'EXPENSE' ? '−' : '+'}</span>
+              <input
+                id="txn-amount"
+                type="number"
+                step="any"
+                min="0"
+                inputMode="decimal"
+                placeholder="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                autoFocus={!existing}
+                required
+              />
+              <span className="cur">{account?.currency ?? ''}</span>
+            </div>
           </div>
-          <div className="form-row">
-            <label htmlFor="txn-date">Date</label>
+          <div className="xfer-box">
+            <div className="lbl">Date</div>
             <input
               id="txn-date"
               type="date"
@@ -210,8 +214,8 @@ export function TransactionModal({
             />
           </div>
         </div>
-        <div className="form-row">
-          <label htmlFor="txn-account">Account</label>
+        <div className="xfer-box" style={{ marginBottom: 12 }}>
+          <div className="lbl">Account</div>
           <select
             id="txn-account"
             value={accountId ?? ''}
@@ -227,6 +231,9 @@ export function TransactionModal({
               </option>
             ))}
           </select>
+          <div className="bal">
+            {account ? `balance ${formatMoney(account.balance, account.currency)}` : ' '}
+          </div>
         </div>
         <div className="form-row">
           <label>Category · last used first</label>
@@ -238,7 +245,12 @@ export function TransactionModal({
                 className="chip"
                 style={
                   categoryId === c.id
-                    ? { borderColor: c.color, color: c.color, fontWeight: 700 }
+                    ? {
+                        borderColor: c.color,
+                        color: c.color,
+                        fontWeight: 700,
+                        background: `color-mix(in srgb, ${c.color} 14%, transparent)`,
+                      }
                     : undefined
                 }
                 onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}

@@ -17,7 +17,12 @@ export function Modal({
       }}
     >
       <div className="modal" role="dialog" aria-label={title}>
-        <h3>{title}</h3>
+        <div className="modal-head">
+          <h3>{title}</h3>
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
+        </div>
         {children}
       </div>
     </div>

@@ -147,42 +147,47 @@ export function RecurringPage() {
 
   return (
     <>
-      <div className="card">
-        <h2>To confirm · {queue?.length ?? '…'} — counted in the forecast until confirmed or skipped</h2>
-        {queue == null ? (
-          <Spinner />
-        ) : queue.length === 0 ? (
-          <div className="placeholder">Nothing due — all caught up</div>
-        ) : (
-          queue.map((item) => (
+      <div className="section-head">
+        <span className="overline review">To confirm · {queue?.length ?? '…'}</span>
+        <span className="note">counted in the forecast until confirmed or skipped</span>
+      </div>
+      {queue == null ? (
+        <Spinner />
+      ) : queue.length === 0 ? (
+        <div className="placeholder">Nothing due — all caught up</div>
+      ) : (
+        <div className="queue-grid">
+          {queue.map((item) => (
             <div
               key={`${item.kind}-${item.ruleId ?? item.plannedId ?? item.scheduleItemId}-${item.dueDate}`}
               className="queue-card"
             >
               <div className="queue-head">
-                <div>
-                  <b>{item.name}</b>
-                  <div className="muted" style={{ fontSize: 12.5 }}>
-                    due {formatDayHeader(item.dueDate)} ·{' '}
-                    {item.kind === 'RECURRING'
-                      ? 'recurring'
-                      : item.kind === 'PLANNED'
-                        ? 'planned one-off'
-                        : 'loan payment'}
-                    {item.type === 'TRANSFER' && ` · ${item.accountName} → ${item.counterAccountName}`}
-                  </div>
-                </div>
-                <div className={`amount ${item.type === 'INCOME' ? 'income' : 'expense'}`}>
+                <b>{item.name}</b>
+                <span
+                  className={`amount ${
+                    item.type === 'TRANSFER' ? 'muted' : item.type === 'INCOME' ? 'income' : 'expense'
+                  }`}
+                >
                   {item.suggestedAmount != null ? (
                     <>
                       {item.approx && '≈ '}
-                      {item.type === 'INCOME' ? '+' : '−'}
+                      {item.type === 'INCOME' ? '+' : item.type === 'TRANSFER' ? '⇄ ' : '−'}
                       {formatMoney(item.suggestedAmount, item.accountCurrency ?? '')}
                     </>
                   ) : (
                     <span className="muted">amount needed</span>
                   )}
-                </div>
+                </span>
+              </div>
+              <div className="queue-meta">
+                due {formatDayHeader(item.dueDate)} ·{' '}
+                {item.kind === 'RECURRING'
+                  ? 'recurring'
+                  : item.kind === 'PLANNED'
+                    ? 'planned one-off'
+                    : 'loan payment'}
+                {item.type === 'TRANSFER' && ` · ${item.accountName} → ${item.counterAccountName}`}
               </div>
               <div className="queue-actions">
                 {canQuickConfirm(item) && (
@@ -191,36 +196,38 @@ export function RecurringPage() {
                   </button>
                 )}
                 <button
-                  className={canQuickConfirm(item) ? 'btn-ghost' : 'btn'}
+                  className={canQuickConfirm(item) ? 'btn-flat' : 'btn'}
                   onClick={() => setConfirming(item)}
                 >
                   {canQuickConfirm(item) ? 'Edit…' : 'Confirm…'}
                 </button>
-                <button className="btn-ghost" onClick={() => skip(item)}>
+                <button className="btn-flat" onClick={() => skip(item)}>
                   Skip
                 </button>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      <div className="card">
-        <h2>
-          Recurring rules{' '}
-          <button className="row-btn" style={{ float: 'right' }} onClick={() => setRuleModal('new')}>
-            + Recurring rule
-          </button>
-        </h2>
-        {rules == null ? (
-          <Spinner />
-        ) : (
-          rules.map((rule) => (
+      <div className="section-head">
+        <span className="overline">Recurring rules</span>
+        <button className="btn btn-sm" onClick={() => setRuleModal('new')}>
+          + Recurring rule
+        </button>
+      </div>
+      {rules == null ? (
+        <Spinner />
+      ) : rules.length === 0 ? (
+        <div className="placeholder">No recurring rules yet</div>
+      ) : (
+        <div className="list-table">
+          {rules.map((rule) => (
             <div key={rule.id} className="settings-row">
               <div className="grow">
                 <div>
                   {rule.name}{' '}
-                  {rule.type === 'INCOME' && <span className="badge badge-imported">income</span>}
+                  {rule.type === 'INCOME' && <span className="badge badge-income">income</span>}
                   {rule.amountStrategy === 'AVERAGE' && (
                     <span className="badge badge-review">avg {rule.avgLookback}</span>
                   )}
@@ -238,7 +245,11 @@ export function RecurringPage() {
                   {rule.nextDue && ` · next ${formatDate(rule.nextDue)}`}
                 </div>
               </div>
-              <span className={`amount ${rule.type === 'INCOME' ? 'income' : 'expense'}`}>
+              <span
+                className={`amount ${
+                  rule.type === 'TRANSFER' ? 'muted' : rule.type === 'INCOME' ? 'income' : 'expense'
+                }`}
+              >
                 {rule.currentAmount != null ? (
                   <>
                     {rule.approxAmount && '≈ '}
@@ -265,25 +276,23 @@ export function RecurringPage() {
                 </button>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
-      <div className="card">
-        <h2>
-          Planned one-offs{' '}
-          <button
-            className="row-btn"
-            style={{ float: 'right' }}
-            onClick={() => setPlannedModal('new')}
-          >
-            + Planned one-off
-          </button>
-        </h2>
-        {planned == null ? (
-          <Spinner />
-        ) : (
-          planned
+      <div className="section-head">
+        <span className="overline">Planned one-offs</span>
+        <button className="btn-ghost btn-sm" onClick={() => setPlannedModal('new')}>
+          + Planned one-off
+        </button>
+      </div>
+      {planned == null ? (
+        <Spinner />
+      ) : planned.filter((item) => item.status === 'PENDING').length === 0 ? (
+        <div className="placeholder">No planned one-offs</div>
+      ) : (
+        <div className="list-table">
+          {planned
             .filter((item) => item.status === 'PENDING')
             .map((item) => (
               <div key={item.id} className="settings-row">
@@ -319,9 +328,9 @@ export function RecurringPage() {
                   </button>
                 </div>
               </div>
-            ))
-        )}
-      </div>
+            ))}
+        </div>
+      )}
 
       {confirming && (
         <ConfirmModal item={confirming} onClose={() => setConfirming(null)} onSaved={reload} />

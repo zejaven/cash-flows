@@ -87,6 +87,7 @@ export default function App() {
       <NavLink to="/reconcile" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Reconcile
       </NavLink>
+      <div className="nav-spacer" />
       <NavLink to="/settings" className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
         Settings
       </NavLink>

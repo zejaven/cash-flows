@@ -64,43 +64,44 @@ export function DebtsPage() {
   const settled = debts.filter((debt) => debt.closed);
 
   const renderGroup = (title: string, list: Debt[]) => (
-    <div className="card">
-      <h2>{title}</h2>
+    <>
+      <div className="section-head">
+        <span className="overline">{title}</span>
+      </div>
       {list.length === 0 ? (
         <div className="placeholder">Nothing here</div>
       ) : (
-        list.map((debt) => (
-          <DebtRow
-            key={debt.id}
-            debt={debt}
-            expanded={expandedId === debt.id}
-            onToggle={() => setExpandedId(expandedId === debt.id ? null : debt.id)}
-            onEdit={() => setModal(debt)}
-            onRecord={() => setRecording(debt)}
-            onLink={() => setLinking(debt)}
-            onCloseToggle={() => toggleClosed(debt)}
-            onDelete={() => remove(debt)}
-            onChanged={reload}
-          />
-        ))
+        <div className="list-table">
+          {list.map((debt) => (
+            <DebtRow
+              key={debt.id}
+              debt={debt}
+              expanded={expandedId === debt.id}
+              onToggle={() => setExpandedId(expandedId === debt.id ? null : debt.id)}
+              onEdit={() => setModal(debt)}
+              onRecord={() => setRecording(debt)}
+              onLink={() => setLinking(debt)}
+              onCloseToggle={() => toggleClosed(debt)}
+              onDelete={() => remove(debt)}
+              onChanged={reload}
+            />
+          ))}
+        </div>
       )}
-    </div>
+    </>
   );
 
   return (
     <>
-      <div className="card">
-        <h2>
-          Debts & loans{' '}
-          <button className="row-btn" style={{ float: 'right' }} onClick={() => setModal('new')}>
-            + Debt
-          </button>
-        </h2>
-        <div className="muted" style={{ fontSize: 13 }}>
-          Principal movements are excluded from spending statistics; loan interest stays a real
-          expense. Repayments can arrive on any account — link the imported transaction to the
-          debt.
-        </div>
+      <div className="section-head">
+        <span className="overline">Debts &amp; loans</span>
+        <button className="btn btn-sm" onClick={() => setModal('new')}>
+          + Debt
+        </button>
+      </div>
+      <div className="footnote" style={{ marginTop: 0 }}>
+        Principal movements are excluded from spending statistics; loan interest stays a real
+        expense. Repayments can arrive on any account — link the imported transaction to the debt.
       </div>
 
       {renderGroup('Owed to me', owedToMe)}
@@ -157,15 +158,16 @@ function DebtRow({
       debt.outstanding > 0);
 
   return (
-    <div style={{ borderBottom: '1px solid var(--border, #333)', padding: '6px 0' }}>
-      <div className="settings-row" style={{ borderBottom: 'none' }}>
+    <div className="debt-item">
+      <div className="settings-row">
         <div className="grow" onClick={onToggle} style={{ cursor: 'pointer' }}>
           <div>
-            {debt.name} <span className="badge badge-imported">{debt.counterpartyName}</span>
+            <span style={{ fontWeight: 600 }}>{debt.name}</span>{' '}
+            <span className="tag">{debt.counterpartyName}</span>
             {debt.kind === 'LOAN' && <span className="badge badge-imported"> loan</span>}
             {overdue && <span className="badge badge-review"> overdue</span>}
           </div>
-          <div className="muted amount" style={{ fontSize: 12.5 }}>
+          <div className="muted amount" style={{ fontSize: 11.5 }}>
             {debt.kind === 'LOAN' && debt.nextPaymentDate != null
               ? `next payment ${formatDate(debt.nextPaymentDate)} · ${formatMoney(
                   debt.nextPaymentAmount ?? 0,
@@ -203,7 +205,7 @@ function DebtRow({
         </div>
       </div>
       {expanded && (
-        <div style={{ paddingLeft: 8 }}>
+        <div className="debt-detail">
           {debt.kind === 'LOAN' && <LoanScheduleTable debt={debt} onChanged={onChanged} />}
           <Movements debt={debt} onChanged={onChanged} />
         </div>

@@ -39,6 +39,24 @@ export function formatSigned(value: number, currency: string, sign: '+' | '-'): 
   return `${sign === '-' ? '−' : '+'}${formatMoney(Math.abs(value), currency)}`;
 }
 
+/** Tinted tile class per currency (mockup account rows); stable hash fallback. */
+const TILE_CLASSES = ['tile-blue', 'tile-green', 'tile-amber', 'tile-purple'];
+const TILE_OVERRIDES: Record<string, string> = {
+  USD: 'tile-green',
+  USDT: 'tile-green',
+  KZT: 'tile-blue',
+  NZD: 'tile-amber',
+  THB: 'tile-purple',
+};
+
+export function currencyTileClass(currency: string): string {
+  const override = TILE_OVERRIDES[currency];
+  if (override) return override;
+  let hash = 0;
+  for (const ch of currency) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+  return TILE_CLASSES[Math.abs(hash) % TILE_CLASSES.length];
+}
+
 /** Cross rate via the USD-based table; null when either currency is missing. */
 export function convert(
   value: number,

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   apiErrorMessage,
@@ -36,6 +36,28 @@ import type {
 
 type AccountChoice = { action: MappingAction; accountId: number | null; newName: string };
 type CashChoice = { accountId: number | null; createNew: boolean };
+
+/** Step indicator (mockup 1f/7a): ✓ done → current → upcoming. */
+function ImportStepper({ step }: { step: 1 | 2 | 3 }) {
+  const labels = ['Upload & parse', 'Map accounts', 'Run & report'];
+  return (
+    <div className="stepper">
+      {labels.map((label, index) => {
+        const n = index + 1;
+        const cls = n < step ? ' done' : n === step ? ' current' : '';
+        return (
+          <Fragment key={label}>
+            {index > 0 && <span className="step-line" />}
+            <span className={`step${cls}`}>
+              <span className="step-dot">{n < step ? '✓' : n}</span>
+              {label}
+            </span>
+          </Fragment>
+        );
+      })}
+    </div>
+  );
+}
 
 /**
  * Three-step statement import (mockups 1f/7a): upload & parse -> map accounts -> report.
@@ -182,21 +204,29 @@ export function ImportPage() {
   // step 3: report
   if (report) {
     return (
-      <div className="card">
+      <>
+      <ImportStepper step={3} />
+      <div className="card-deep">
         <h2>Import report</h2>
-        <div className="chip-row">
-          <span className="chip amount">
-            created <b>{report.created}</b>
-          </span>
-          <span className="chip amount">
-            duplicates skipped <b>{report.duplicates}</b>
-          </span>
-          <span className="chip amount">
-            need review <b className={report.needsReview > 0 ? 'expense' : ''}>{report.needsReview}</b>
-          </span>
-          <span className="chip amount">
-            transfers detected <b>{report.transfers}</b>
-          </span>
+        <div className="stat-grid">
+          <div className="stat">
+            <div className="num income">{report.created}</div>
+            <div className="lbl">created</div>
+          </div>
+          <div className="stat">
+            <div className="num muted">{report.duplicates}</div>
+            <div className="lbl">duplicates skipped</div>
+          </div>
+          <div className="stat">
+            <div className={`num ${report.needsReview > 0 ? 'review-text' : 'muted'}`}>
+              {report.needsReview}
+            </div>
+            <div className="lbl">need review</div>
+          </div>
+          <div className="stat">
+            <div className="num accent-text">{report.transfers}</div>
+            <div className="lbl">transfers detected</div>
+          </div>
         </div>
         {report.warnings.length > 0 && (
           <div className="form-row">
@@ -227,6 +257,7 @@ export function ImportPage() {
           )}
         </div>
       </div>
+      </>
     );
   }
 
@@ -234,21 +265,36 @@ export function ImportPage() {
   if (preview) {
     const bankAccounts = accounts.filter((a) => a.bankId === bankId);
     return (
-      <div className="card">
-        <h2>Map statement accounts</h2>
-        <div className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
-          ✓ Checksums verified · {preview.accounts.length} accounts · {preview.totalRows} rows ·{' '}
-          {formatDate(preview.periodFrom)} – {formatDate(preview.periodTo)}
+      <>
+        <ImportStepper step={2} />
+        <div className="banner-ok">
+          <span className="ok">
+            ✓ Checksums verified — {preview.accounts.length} accounts,{' '}
+            {formatDate(preview.periodFrom)} – {formatDate(preview.periodTo)},{' '}
+            {preview.totalRows} rows
+          </span>
+          {file && (
+            <span className="amount muted" style={{ fontSize: 11 }}>
+              {file.name}
+            </span>
+          )}
         </div>
+        <div className="section-head">
+          <span className="overline">Map statement accounts</span>
+        </div>
+        <div className="list-table">
         {preview.accounts.map((account) => {
           const choice = choices.get(account.accountNumber)!;
           return (
-            <div key={account.accountNumber} className="settings-row">
+            <div
+              key={account.accountNumber}
+              className={`settings-row${account.suggestion.kind !== 'AUTO' ? ' review' : ''}`}
+            >
               <div className="grow">
                 <div className="mono">
                   {account.accountNumber} · {account.currency}
                   {account.suggestion.kind === 'AUTO' && (
-                    <span className="badge badge-imported"> AUTO ✓</span>
+                    <span className="badge badge-income"> AUTO ✓</span>
                   )}
                 </div>
                 <div className="muted amount" style={{ fontSize: 12 }}>
@@ -296,10 +342,17 @@ export function ImportPage() {
             </div>
           );
         })}
+        </div>
+        <div className="footnote" style={{ marginBottom: 14 }}>
+          Mappings are remembered for future imports. Holds («Amount in process») are ignored.
+        </div>
 
         {preview.cashCurrencies.length > 0 && (
           <>
-            <h2 style={{ marginTop: 18 }}>Cash withdrawals target</h2>
+            <div className="section-head">
+              <span className="overline">Cash withdrawals target</span>
+            </div>
+            <div className="list-table">
             {preview.cashCurrencies.map((currency) => {
               const choice = cashChoices.get(currency.currency)!;
               return (
@@ -336,6 +389,7 @@ export function ImportPage() {
                 </div>
               );
             })}
+            </div>
           </>
         )}
 
@@ -344,17 +398,21 @@ export function ImportPage() {
             Back
           </button>
           <button className="btn" onClick={runConfirm} disabled={busy}>
-            Run import → <span className="muted">idempotent</span>
+            Run import →
           </button>
         </div>
-      </div>
+        <div className="footnote" style={{ textAlign: 'right' }}>
+          idempotent — safe to re-run
+        </div>
+      </>
     );
   }
 
   // step 1: upload (parse mode) or generate a parser (AI mode)
   return (
     <>
-      <div className="card">
+      <ImportStepper step={1} />
+      <div className="card-deep">
         <h2>Import bank statement</h2>
         <div className="form-actions" style={{ justifyContent: 'flex-start', marginBottom: 12 }}>
           <button
@@ -427,8 +485,11 @@ export function ImportPage() {
       </div>
 
       {runs != null && runs.length > 0 && (
-        <div className="card">
-          <h2>Past imports</h2>
+        <>
+          <div className="section-head">
+            <span className="overline">Past imports</span>
+          </div>
+          <div className="list-table">
           {runs.map((run) => (
             <div key={run.id} className="settings-row">
               <div className="grow">
@@ -442,7 +503,8 @@ export function ImportPage() {
               </span>
             </div>
           ))}
-        </div>
+          </div>
+        </>
       )}
     </>
   );

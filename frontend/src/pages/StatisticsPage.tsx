@@ -82,6 +82,20 @@ export function StatisticsPage() {
   const shareTotal = shareRows.reduce((sum, row) => sum + row.amount, 0);
   const comparisonPeriod = lastFinishedMonth();
 
+  // donut (mockup 1h): top-5 slices from the share rows, neutral remainder
+  const donutGradient = useMemo(() => {
+    const top = shareRows.slice(0, 5);
+    const stops: string[] = [];
+    let acc = 0;
+    for (const row of top) {
+      const start = acc;
+      acc += row.pct;
+      stops.push(`${row.color ?? 'var(--review)'} ${start}% ${Math.min(acc, 100)}%`);
+    }
+    if (acc < 100) stops.push(`var(--border) ${acc}% 100%`);
+    return `conic-gradient(${stops.join(', ')})`;
+  }, [shareRows]);
+
   return (
     <>
       <div className="filters">
@@ -106,13 +120,9 @@ export function StatisticsPage() {
             </option>
           ))}
         </select>
-        <label
-          className="chip"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-        >
+        <label className="check-inline">
           <input
             type="checkbox"
-            style={{ width: 'auto' }}
             checked={includeSystem}
             onChange={(e) => setIncludeSystem(e.target.checked)}
           />
@@ -122,7 +132,7 @@ export function StatisticsPage() {
         {data?.incomplete && <span className="chip badge-review">partial rates</span>}
       </div>
 
-      <div className="card">
+      <div className="card-deep">
         <h2>Spending by category</h2>
         {data == null ? (
           <Spinner />
@@ -139,7 +149,8 @@ export function StatisticsPage() {
       </div>
 
       {data != null && (
-        <div className="card">
+        <div className="stats-grid">
+        <div className="card-deep">
           <h2>
             Category share ·{' '}
             {selectedBucket != null && data.buckets[selectedBucket]
@@ -183,31 +194,57 @@ export function StatisticsPage() {
             </>
           )}
         </div>
-      )}
 
-      {comparison && (
-        <div className="card">
-          <h2>Fact vs forecast · {comparisonPeriod.label}</h2>
-          <div className="chip-row">
-            <span className="chip amount">
-              Forecast (averages) <b>−{formatMoney(comparison.forecast, comparison.currency)}</b>
-            </span>
-            <span className="chip amount">
-              Actual <b>−{formatMoney(comparison.actual, comparison.currency)}</b>
-            </span>
-            {comparison.diffPct != null && (
-              <span className="chip amount">
-                {comparison.diff >= 0 ? 'Under' : 'Over'} by{' '}
-                <b className={comparison.diff >= 0 ? 'income' : 'expense'}>
-                  {formatMoney(Math.abs(comparison.diff), comparison.currency)} ·{' '}
-                  {Math.abs(comparison.diffPct).toFixed(0)}%
-                </b>
-              </span>
-            )}
-            {comparison.diffPct == null && (
-              <span className="chip muted">no averaging profiles to compare against</span>
-            )}
-          </div>
+        <div>
+          {shareRows.length > 0 && (
+            <div className="card-deep donut-card">
+              <div className="donut" style={{ background: donutGradient }}>
+                <div className="hole">
+                  <span className="val amount">{Math.round(shareTotal).toLocaleString('en-US')}</span>
+                  <span className="cap">
+                    ≈{data.currency} ·{' '}
+                    {selectedBucket != null && data.buckets[selectedBucket]
+                      ? data.buckets[selectedBucket].label
+                      : 'period'}
+                  </span>
+                </div>
+              </div>
+              <div className="donut-note">
+                Category share for the selected period.{' '}
+                <span style={{ color: 'var(--dim)' }}>Correction hidden by default.</span>
+              </div>
+            </div>
+          )}
+
+          {comparison && (
+            <div className="card-deep">
+              <h2>Fact vs forecast · {comparisonPeriod.label}</h2>
+              <div className="side-row">
+                <span className="lbl">Forecast (averages)</span>
+                <span className="amount">
+                  −{formatMoney(comparison.forecast, comparison.currency)}
+                </span>
+              </div>
+              <div className="side-row">
+                <span className="lbl">Actual</span>
+                <span className="amount">−{formatMoney(comparison.actual, comparison.currency)}</span>
+              </div>
+              {comparison.diffPct != null ? (
+                <div className="side-row" style={{ fontWeight: 700 }}>
+                  <span className={comparison.diff >= 0 ? 'income' : 'expense'}>
+                    {comparison.diff >= 0 ? 'Under by' : 'Over by'}
+                  </span>
+                  <span className={`amount ${comparison.diff >= 0 ? 'income' : 'expense'}`}>
+                    {formatMoney(Math.abs(comparison.diff), comparison.currency)} ·{' '}
+                    {Math.abs(comparison.diffPct).toFixed(0)}%
+                  </span>
+                </div>
+              ) : (
+                <div className="footnote">no averaging profiles to compare against</div>
+              )}
+            </div>
+          )}
+        </div>
         </div>
       )}
     </>

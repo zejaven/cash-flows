@@ -89,171 +89,239 @@ export function ConvertPage() {
 
   return (
     <>
-      <div className="card">
-        <h2>
-          Conversion routes{' '}
-          <button className="row-btn" style={{ float: 'right' }} onClick={() => setEditor('new')}>
-            + New route
-          </button>
-        </h2>
-        {routes.length === 0 ? (
-          <div className="placeholder">
-            No routes yet — save the chains you actually use (e.g. «THB via ByBit»)
-          </div>
-        ) : (
-          routes.map((route) => (
-            <div key={route.id} className="settings-row">
-              <button
-                className="grow"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: route.id === selectedId ? 'var(--accent)' : 'var(--text)',
-                  textAlign: 'left',
-                  fontWeight: route.id === selectedId ? 700 : 400,
-                  padding: 0,
-                }}
-                onClick={() => setSelectedId(route.id)}
-              >
-                {route.name}{' '}
-                <span className="muted mono" style={{ fontSize: 12 }}>
-                  {route.fromCurrency} → {route.toCurrency} · {route.steps.length} steps
-                </span>
-                {route.archived && <span className="badge badge-review"> archived</span>}
-              </button>
-              <div className="row-actions">
-                <button className="row-btn" onClick={() => setEditor(route)}>
-                  Edit steps
-                </button>
-                <button className="row-btn" onClick={() => remove(route)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))
+      <div className="section-head">
+        <span className="overline">Conversion routes</span>
+        {marketHeader && (
+          <span className="note amount" style={{ textAlign: 'right' }}>
+            {marketHeader}
+          </span>
         )}
       </div>
 
-      {selected && (
-        <div className="card">
-          <h2>
-            {selected.name}
-            {marketHeader && (
-              <span className="muted" style={{ float: 'right', fontSize: 12, textTransform: 'none' }}>
-                {marketHeader}
-              </span>
+      {routes.length === 0 ? (
+        <>
+          <div className="placeholder">
+            No routes yet — save the chains you actually use (e.g. «THB via ByBit»)
+          </div>
+          <div style={{ textAlign: 'center' }}>
+            <button className="btn" onClick={() => setEditor('new')}>
+              + New route
+            </button>
+          </div>
+        </>
+      ) : (
+        <div className="convert-grid">
+          <div>
+            {selected ? (
+              <div className="card-deep">
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 10,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <b style={{ fontSize: 13 }}>{selected.name}</b>
+                  <div className="pill-switch">
+                    <button
+                      className={direction === 'FORWARD' ? 'active' : ''}
+                      onClick={() => setDirection('FORWARD')}
+                    >
+                      From input
+                    </button>
+                    <button
+                      className={direction === 'REVERSE' ? 'active' : ''}
+                      onClick={() => setDirection('REVERSE')}
+                    >
+                      To target ⇄
+                    </button>
+                  </div>
+                </div>
+                <div className="form-row" style={{ marginTop: 12, marginBottom: 0 }}>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    inputMode="decimal"
+                    placeholder={
+                      direction === 'FORWARD'
+                        ? `amount you send, ${selected.fromCurrency}`
+                        : `amount you need, ${selected.toCurrency}`
+                    }
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="amount"
+                  />
+                </div>
+                {calcError && <div className="expense" style={{ marginTop: 10 }}>{calcError}</div>}
+                {calc && (
+                  <>
+                    <div className="io-row">
+                      <div className="io-box">
+                        <div className="lbl">You send</div>
+                        <div className="val">
+                          {formatMoney(calc.amountIn, selected.fromCurrency ?? '')}
+                        </div>
+                      </div>
+                      <div className="arrow">→</div>
+                      <div className="io-box get">
+                        <div className="lbl">You get</div>
+                        <div className="val">
+                          {formatMoney(calc.amountOut, selected.toCurrency ?? '')}
+                        </div>
+                      </div>
+                    </div>
+                    {calc.steps.map((step) => (
+                      <div key={step.position} className="settings-row amount" style={{ fontSize: 12.5 }}>
+                        <span className="mono" style={{ width: 18, color: 'var(--dim)' }}>
+                          {step.position}
+                        </span>
+                        <div className="grow">
+                          {step.fromCurrency} → {step.toCurrency}
+                          <span className="muted">
+                            {' '}
+                            · {step.rate}
+                            {step.rateInverted
+                              ? ` ${step.fromCurrency}/${step.toCurrency}`
+                              : ` ${step.toCurrency}/${step.fromCurrency}`}
+                            {step.feePct > 0 && ` · fee ${step.feePct}%`}
+                            {step.feeFixed > 0 &&
+                              ` · fee ${formatMoney(step.feeFixed, step.toCurrency)} fix`}
+                          </span>
+                        </div>
+                        <span>
+                          {formatMoney(step.amountIn, step.fromCurrency)} →{' '}
+                          <b>{formatMoney(step.amountOut, step.toCurrency)}</b>
+                        </span>
+                      </div>
+                    ))}
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: 10,
+                        flexWrap: 'wrap',
+                        marginTop: 10,
+                        paddingTop: 10,
+                        borderTop: '1px solid var(--border-soft)',
+                      }}
+                    >
+                      <span className="muted amount" style={{ fontSize: 11.5 }}>
+                        effective{' '}
+                        <b style={{ color: 'var(--text)' }}>
+                          {calc.effectiveRate?.toFixed(4)} {selected.fromCurrency}/{selected.toCurrency}
+                        </b>
+                        {calc.marketRate != null && calc.lossPct != null && (
+                          <>
+                            {' '}
+                            · market {calc.marketRate.toFixed(4)} · loss{' '}
+                            <b className={calc.lossPct < 0 ? 'review-text' : 'income'}>
+                              {calc.lossPct > 0 ? '+' : ''}
+                              {calc.lossPct.toFixed(1)}%
+                            </b>
+                          </>
+                        )}
+                      </span>
+                      <button
+                        className="btn btn-sm"
+                        onClick={() =>
+                          setTransfer({
+                            amountSent: calc.amountIn,
+                            amountReceived: calc.amountOut,
+                            description: selected.name,
+                          })
+                        }
+                      >
+                        Create transfer →
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="placeholder">Select a route</div>
             )}
-          </h2>
-          <div className="form-row" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <div className="pill-switch">
-              <button
-                className={direction === 'FORWARD' ? 'active' : ''}
-                onClick={() => setDirection('FORWARD')}
-              >
-                You send {selected.fromCurrency}
-              </button>
-              <button
-                className={direction === 'REVERSE' ? 'active' : ''}
-                onClick={() => setDirection('REVERSE')}
-              >
-                ⇄ You need {selected.toCurrency}
+          </div>
+
+          <div>
+            <div className="section-head" style={{ marginTop: 0 }}>
+              <span className="overline">Saved routes</span>
+              <button className="btn btn-sm" onClick={() => setEditor('new')}>
+                + New route
               </button>
             </div>
-            <input
-              type="number"
-              step="any"
-              min="0"
-              inputMode="decimal"
-              placeholder={direction === 'FORWARD' ? `amount in ${selected.fromCurrency}` : `target in ${selected.toCurrency}`}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              style={{ width: 200 }}
-              className="amount"
-            />
-          </div>
-          {calcError && <div className="expense">{calcError}</div>}
-          {calc && (
-            <>
-              {calc.steps.map((step) => (
-                <div key={step.position} className="settings-row amount" style={{ fontSize: 13.5 }}>
-                  <span className="muted" style={{ width: 20 }}>
-                    {step.position}
-                  </span>
-                  <div className="grow">
-                    {step.fromCurrency} → {step.toCurrency}
-                    <span className="muted">
-                      {' '}
-                      · {step.rate}
-                      {step.rateInverted
-                        ? ` ${step.fromCurrency}/${step.toCurrency}`
-                        : ` ${step.toCurrency}/${step.fromCurrency}`}
-                      {step.feePct > 0 && ` · fee ${step.feePct}%`}
-                      {step.feeFixed > 0 && ` · fee ${formatMoney(step.feeFixed, step.toCurrency)} fix`}
+            <div className="list-table">
+              {routes.map((route) => (
+                <div key={route.id} className="settings-row">
+                  <button
+                    className="grow"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: route.id === selectedId ? 'var(--cta)' : 'var(--text)',
+                      textAlign: 'left',
+                      fontWeight: route.id === selectedId ? 700 : 600,
+                      padding: 0,
+                      fontSize: 12.5,
+                    }}
+                    onClick={() => setSelectedId(route.id)}
+                  >
+                    {route.name}{' '}
+                    <span className="muted mono" style={{ fontSize: 11, fontWeight: 400 }}>
+                      {route.fromCurrency} → {route.toCurrency} · {route.steps.length} steps
                     </span>
+                    {route.archived && <span className="badge badge-review"> archived</span>}
+                  </button>
+                  <div className="row-actions">
+                    <button className="row-btn" onClick={() => setEditor(route)}>
+                      Edit steps
+                    </button>
+                    <button className="row-btn" onClick={() => remove(route)}>
+                      Delete
+                    </button>
                   </div>
-                  <span>
-                    {formatMoney(step.amountIn, step.fromCurrency)} →{' '}
-                    <b>{formatMoney(step.amountOut, step.toCurrency)}</b>
-                  </span>
                 </div>
               ))}
-              <div className="settings-row amount">
-                <div className="grow">
-                  <b>
-                    {formatMoney(calc.amountIn, selected.fromCurrency ?? '')} →{' '}
-                    {formatMoney(calc.amountOut, selected.toCurrency ?? '')}
-                  </b>
-                </div>
-                <span className="muted">
-                  effective {calc.effectiveRate?.toFixed(4)} {selected.fromCurrency}/
-                  {selected.toCurrency}
-                  {calc.marketRate != null && calc.lossPct != null && (
-                    <>
-                      {' '}
-                      · market {calc.marketRate.toFixed(4)} ·{' '}
-                      <span className={calc.lossPct < 0 ? 'expense' : 'income'}>
-                        {calc.lossPct > 0 ? '+' : ''}
-                        {calc.lossPct.toFixed(1)}%
-                      </span>
-                    </>
-                  )}
-                </span>
-              </div>
-              <div className="form-actions">
-                <button
-                  className="btn"
-                  onClick={() =>
-                    setTransfer({
-                      amountSent: calc.amountIn,
-                      amountReceived: calc.amountOut,
-                      description: selected.name,
-                    })
-                  }
-                >
-                  Create transfer →
-                </button>
-              </div>
-            </>
-          )}
+            </div>
 
-          {comparison.length > 1 && (
-            <>
-              <h2 style={{ marginTop: 16 }}>
-                Compare routes · {selected.fromCurrency} → {selected.toCurrency}
-              </h2>
-              {comparison.map((row) => (
-                <div key={row.routeId} className="settings-row amount" style={{ fontSize: 13.5 }}>
-                  <div className="grow">
-                    {row.name} {row.best && <span className="badge badge-imported">BEST</span>}
-                  </div>
-                  <span style={{ marginRight: 14 }}>{row.effectiveRate.toFixed(4)}</span>
-                  <span className={row.lossPct != null && row.lossPct < 0 ? 'expense' : 'income'}>
-                    {row.lossPct != null ? `${row.lossPct > 0 ? '+' : ''}${row.lossPct.toFixed(1)}%` : '—'}
+            {comparison.length > 1 && selected && (
+              <>
+                <div className="section-head">
+                  <span className="overline">
+                    Compare · {selected.fromCurrency} → {selected.toCurrency}
                   </span>
                 </div>
-              ))}
-            </>
-          )}
+                <div className="list-table">
+                  {comparison.map((row) => (
+                    <div
+                      key={row.routeId}
+                      className={`settings-row amount${row.best ? ' best-row' : ''}`}
+                      style={{ fontSize: 12.5 }}
+                    >
+                      <div className="grow" style={{ fontWeight: 600 }}>
+                        {row.name} {row.best && <span className="badge badge-income">BEST</span>}
+                      </div>
+                      <span style={{ marginRight: 14 }}>{row.effectiveRate.toFixed(4)}</span>
+                      <span className={row.lossPct != null && row.lossPct < 0 ? 'expense' : 'income'}>
+                        {row.lossPct != null
+                          ? `${row.lossPct > 0 ? '+' : ''}${row.lossPct.toFixed(1)}%`
+                          : '—'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <div className="card-deep" style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.6 }}>
+              Saved routes are editable chains of steps (rate + fixed fee + % fee). The calculator
+              runs both directions; «Create transfer» pre-fills a transfer with the calculated
+              amounts — rates stay editable.
+            </div>
+          </div>
         </div>
       )}
 
