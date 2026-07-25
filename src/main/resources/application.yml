@@ -38,7 +38,9 @@ import:
     prompt-file: prompts/generate-parser.md
     claude:
       command: claude
-      models: ["", "claude-fable-5", "claude-opus-4-8", "claude-sonnet-4-6"]
+      # blank = let the Claude Code CLI choose; aliases resolve to the current
+      # version of that tier, so no edit is needed when a new one ships
+      models: ["", "opus", "sonnet", "claude-fable-5"]
     codex:
       command: codex
       models: ["", "gpt-5.5-codex", "gpt-5.5"]
