@@ -104,17 +104,8 @@ export function TransactionsPage() {
     getCategories(true).then(setCategories).catch(() => {});
   }, []);
 
-  const reload = useCallback(() => {
-    setItems(null);
-    setSelected(new Set());
-    getTransactions(filters, 0, PAGE_SIZE)
-      .then((result) => {
-        setItems(result.items);
-        setPage(0);
-        setTotalPages(result.totalPages);
-        setTotalItems(result.totalItems);
-      })
-      .catch((e) => toast(apiErrorMessage(e), true));
+  /** Review count, day totals and summary — everything around the list itself. */
+  const reloadAside = useCallback(() => {
     getTransactions({ needsReview: true }, 0, 1)
       .then((result) => setReviewCount(result.totalItems))
       .catch(() => setReviewCount(null));
@@ -128,9 +119,45 @@ export function TransactionsPage() {
     } else {
       setSummary(null);
     }
-  }, [filters, displayCurrency, toast]);
+  }, [filters, displayCurrency]);
+
+  /** Filters changed: start over from page 0 with a spinner. */
+  const reload = useCallback(() => {
+    setItems(null);
+    setSelected(new Set());
+    getTransactions(filters, 0, PAGE_SIZE)
+      .then((result) => {
+        setItems(result.items);
+        setPage(0);
+        setTotalPages(result.totalPages);
+        setTotalItems(result.totalItems);
+      })
+      .catch((e) => toast(apiErrorMessage(e), true));
+    reloadAside();
+  }, [filters, toast, reloadAside]);
 
   useEffect(reload, [reload]);
+
+  /**
+   * After an edit: refetch every page loaded so far while the old rows stay on
+   * screen — swapping the list for a spinner collapses the page and throws the
+   * scroll position back to the top.
+   */
+  const refresh = useCallback(() => {
+    setSelected(new Set());
+    Promise.all(
+      Array.from({ length: page + 1 }, (_, p) => getTransactions(filters, p, PAGE_SIZE)),
+    )
+      .then((results) => {
+        const last = results[results.length - 1];
+        setItems(results.flatMap((result) => result.items));
+        setPage(Math.max(0, Math.min(page, last.totalPages - 1)));
+        setTotalPages(last.totalPages);
+        setTotalItems(last.totalItems);
+      })
+      .catch((e) => toast(apiErrorMessage(e), true));
+    reloadAside();
+  }, [filters, page, toast, reloadAside]);
 
   // Keep filters in the URL so they survive a page refresh.
   useEffect(() => {
@@ -207,7 +234,7 @@ export function TransactionsPage() {
       if (wasUncategorizedImport && sharedPattern) {
         setRuleSuggestion({ pattern: sharedPattern, categoryId: Number(bulkCategoryId) });
       }
-      reload();
+      refresh();
     } catch (e) {
       toast(apiErrorMessage(e), true);
     }
@@ -385,7 +412,7 @@ export function TransactionsPage() {
       {adding && (
         <TransactionModal
           onClose={() => setAdding(false)}
-          onSaved={reload}
+          onSaved={refresh}
           onSwitchToTransfer={() => {
             setAdding(false);
             setAddingTransfer(true);
@@ -393,13 +420,13 @@ export function TransactionsPage() {
         />
       )}
       {addingTransfer && (
-        <TransferModal onClose={() => setAddingTransfer(false)} onSaved={reload} />
+        <TransferModal onClose={() => setAddingTransfer(false)} onSaved={refresh} />
       )}
       {editing && editing.type !== 'TRANSFER' && !convertingToTransfer && !linkingToDebt && (
         <TransactionModal
           existing={editing}
           onClose={() => setEditing(null)}
-          onSaved={reload}
+          onSaved={refresh}
           onCategorized={(categoryId) => {
             if (editing.source === 'IMPORT' && editing.categoryId == null && editing.description) {
               setRuleSuggestion({ pattern: editing.description, categoryId });
@@ -458,7 +485,7 @@ export function TransactionsPage() {
             setLinkDebt(null);
             setOpenDebts(null);
           }}
-          onSaved={reload}
+          onSaved={refresh}
         />
       )}
       {editing && (editing.type === 'TRANSFER' || convertingToTransfer) && (
@@ -468,7 +495,7 @@ export function TransactionsPage() {
             setEditing(null);
             setConvertingToTransfer(false);
           }}
-          onSaved={reload}
+          onSaved={refresh}
         />
       )}
       {ruleSuggestion && (
@@ -477,7 +504,7 @@ export function TransactionsPage() {
           prefillPattern={ruleSuggestion.pattern}
           prefillCategoryId={ruleSuggestion.categoryId}
           onClose={() => setRuleSuggestion(null)}
-          onSaved={reload}
+          onSaved={refresh}
         />
       )}
     </>
