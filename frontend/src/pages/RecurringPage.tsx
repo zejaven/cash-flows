@@ -126,6 +126,38 @@ export function RecurringPage() {
     }
   };
 
+  /** A rule with confirmed/skipped history can't be deleted — it is archived instead. */
+  const toggleRuleArchived = async (rule: RecurringRule) => {
+    try {
+      await updateRecurringRule(
+        rule.id,
+        {
+          name: rule.name,
+          type: rule.type,
+          accountId: rule.accountId,
+          counterAccountId: rule.counterAccountId,
+          categoryId: rule.categoryId,
+          scheduleFreq: rule.scheduleFreq,
+          dayOfMonth: rule.dayOfMonth,
+          dayOfWeek: rule.dayOfWeek,
+          intervalDays: rule.intervalDays,
+          startDate: rule.startDate,
+          endDate: rule.endDate,
+          amountStrategy: rule.amountStrategy,
+          amount: rule.amount,
+          counterAmount: rule.counterAmount,
+          avgLookback: rule.avgLookback,
+          archived: !rule.archived,
+          forecastOnly: rule.forecastOnly,
+        },
+        today(),
+      );
+      reload();
+    } catch (e) {
+      toast(apiErrorMessage(e), true);
+    }
+  };
+
   const removePlanned = async (item: Planned) => {
     if (!confirm('Delete planned transaction?')) return;
     try {
@@ -270,6 +302,9 @@ export function RecurringPage() {
                 </button>
                 <button className="row-btn" onClick={() => setRuleModal(rule)}>
                   Edit
+                </button>
+                <button className="row-btn" onClick={() => toggleRuleArchived(rule)}>
+                  {rule.archived ? 'Unarchive' : 'Archive'}
                 </button>
                 <button className="row-btn" onClick={() => removeRule(rule)}>
                   Delete
