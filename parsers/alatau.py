@@ -10,6 +10,13 @@
 должна совпасть с Deposits, а `баланс на начало + приходы - расходы` — с балансом
 на конец периода. При расхождении скрипт возвращает ненулевой код возврата.
 
+Сторно (например, отменённое снятие в банкомате) печатается строкой
+Replenishment с тем же Reference, суммой и валютой операции, что и исходный
+расход. В таких строках банк печатает в "Income in account currency" сумму в
+валюте операции (800 NZD -> "800" в USD-счёте), тогда как Deposits в сводке
+посчитан верно. Поэтому приход сторно берётся из расхода исходной строки, а
+если её в выписке нет и валюта операции совпадает с валютой счёта — из Amount.
+
 Структура документа описана в docs/bank-statement-structure.md.
 """
 from __future__ import annotations
@@ -44,8 +51,29 @@ AUTH_CODE = re.compile(r"Authorization code:\s*(\S+)")
 # "at the Bank's current exchange rate 485.40 KZT = 1 USD"
 RATE = re.compile(r"exchange rate\s+([\d.]+)\s+([A-Z]{3})\s*=\s*1\s+([A-Z]{3})")
 
-TRANSACTION_COLUMNS = 7
 SUMMARY_COLUMNS = 2
+
+# Шапка таблицы операций -> ключ колонки. Колонки ищутся по названиям, а не по
+# позициям: с осени 2026 банк добавил "Transaction completion date" (8 колонок
+# вместо 7), а "Date" переименовал в "Transaction date". Дата проводки
+# игнорируется — дата и время операции остаются прежними, иначе разъедутся
+# ключи дедупликации с ранее импортированными выписками.
+COLUMN_ALIASES = {
+    "date": "date",
+    "transaction date": "date",
+    "transaction completion date": "completed",
+    "operation": "operation",
+    "details": "details",
+    "amount": "amount",
+    "transaction currency": "currency",
+    "income in account currency": "income",
+    "expense in account currency": "expense",
+}
+REQUIRED_COLUMNS = {"date", "operation", "details", "amount", "currency",
+                    "income", "expense"}
+# Старый макет (7 колонок) — на случай таблицы без шапки до первой шапки
+LEGACY_COLUMNS = {"date": 0, "operation": 1, "details": 2, "amount": 3,
+                  "currency": 4, "income": 5, "expense": 6}
 
 
 def clean(value: str | None) -> str:
@@ -62,6 +90,21 @@ def number(value: str | None) -> float:
 def iso_date(ddmmyyyy: str) -> str:
     day, month, year = ddmmyyyy.split(".")
     return f"{year}-{month}-{day}"
+
+
+def map_columns(row: list) -> dict[str, int] | None:
+    """Строка-шапка таблицы операций -> {ключ: индекс}, иначе None."""
+    columns = {}
+    for index, cell in enumerate(row):
+        key = COLUMN_ALIASES.get(clean(cell).lower())
+        if key:
+            columns[key] = index
+    return columns if REQUIRED_COLUMNS <= columns.keys() else None
+
+
+def cell(row: list, columns: dict[str, int], key: str) -> str | None:
+    index = columns.get(key)
+    return row[index] if index is not None and index < len(row) else None
 
 
 def parse_header(text: str) -> dict:
@@ -124,9 +167,8 @@ def parse_summary(table: list[list], summaries: dict, last_account: str | None):
     return account
 
 
-def parse_transaction(row: list, stamp: re.Match) -> dict:
-    row = (list(row) + [None] * TRANSACTION_COLUMNS)[:TRANSACTION_COLUMNS]
-    details = clean(row[2])
+def parse_transaction(row: list, columns: dict[str, int], stamp: re.Match) -> dict:
+    details = clean(cell(row, columns, "details"))
     reference = REFERENCE.search(details)
     auth = AUTH_CODE.search(details)
     rate = RATE.search(details)
@@ -135,27 +177,27 @@ def parse_transaction(row: list, stamp: re.Match) -> dict:
     return {
         "date": iso_date(stamp.group(1)),
         "time": stamp.group(2),
-        "operation": clean(row[1]) or None,
+        "operation": clean(cell(row, columns, "operation")) or None,
         "description": description,
         "reference": reference.group(1) if reference else None,
         "auth_code": auth.group(1) if auth else None,
         "exchange_rate": ({"rate": float(rate.group(1)),
                            "from": rate.group(2),
                            "to": rate.group(3)} if rate else None),
-        "amount": number(row[3]),
-        "currency": clean(row[4]) or None,
-        "income": number(row[5]),
-        "expense": number(row[6]),
+        "amount": number(cell(row, columns, "amount")),
+        "currency": clean(cell(row, columns, "currency")) or None,
+        "income": number(cell(row, columns, "income")),
+        "expense": number(cell(row, columns, "expense")),
     }
 
 
-def merge_continuation(row: list, previous: dict) -> None:
+def merge_continuation(row: list, columns: dict[str, int], previous: dict) -> None:
     """Разрыв страницы режет транзакцию надвое: внизу страницы остаётся голова
     (дата, тип, суммы), наверху следующей — хвост (время и остаток описания)."""
-    head = clean(row[0])
+    head = clean(cell(row, columns, "date"))
     if TIME_CELL.match(head) and not previous["time"]:
         previous["time"] = head
-    tail = clean(row[2] if len(row) > 2 else "")
+    tail = clean(cell(row, columns, "details"))
     if not tail:
         return
     reference = REFERENCE.search(tail)
@@ -174,6 +216,20 @@ def merge_continuation(row: list, previous: dict) -> None:
                                          "to": rate.group(3)}
 
 
+def fix_reversals(rows: list[dict], account_currency: str | None) -> None:
+    """Исправить приход в строках сторно (см. docstring модуля)."""
+    originals = {(row["reference"], row["amount"], row["currency"]): row["expense"]
+                 for row in rows if row["expense"] and row["reference"]}
+    for row in rows:
+        if row["operation"] != "Replenishment" or not row["reference"]:
+            continue
+        original = originals.get((row["reference"], row["amount"], row["currency"]))
+        if original is not None:
+            row["income"] = original
+        elif row["currency"] == account_currency:
+            row["income"] = row["amount"]
+
+
 def parse_statement(path: Path) -> dict:
     summaries: dict[str, dict] = {}
     transactions: dict[str, list] = {}
@@ -181,6 +237,7 @@ def parse_statement(path: Path) -> dict:
     header: dict = {}
     current: str | None = None
     last_summary: str | None = None
+    columns: dict[str, int] | None = None   # шапка печатается не на каждой странице
 
     with pdfplumber.open(path) as pdf:
         for index, page in enumerate(pdf.pages):
@@ -198,21 +255,27 @@ def parse_statement(path: Path) -> dict:
                 width = max(len(row) for row in table)
                 if width == SUMMARY_COLUMNS:
                     last_summary = parse_summary(table, summaries, last_summary)
-                elif width == TRANSACTION_COLUMNS and current:
+                elif width > SUMMARY_COLUMNS and current:
                     for row in table:
-                        if clean(row[0]) == "Date":
-                            continue          # шапка повторяется на каждой странице
-                        stamp = DATE_CELL.match(clean(row[0]))
+                        header_columns = map_columns(row)
+                        if header_columns:
+                            columns = header_columns
+                            continue
+                        active = columns or LEGACY_COLUMNS
+                        if width != max(active.values()) + 1:
+                            break             # не таблица операций
+                        stamp = DATE_CELL.match(clean(cell(row, active, "date")))
                         if stamp:
                             transactions[current].append(
-                                parse_transaction(row, stamp))
+                                parse_transaction(row, active, stamp))
                         elif transactions[current]:
-                            merge_continuation(row, transactions[current][-1])
+                            merge_continuation(row, active, transactions[current][-1])
 
     accounts = []
     for account in order or list(summaries):
         summary = dict(summaries.get(account, {}))
         currency = summary.pop("currency", None)
+        fix_reversals(transactions.get(account, []), currency)
         accounts.append({
             "account": account,
             "currency": currency,
